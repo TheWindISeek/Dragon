@@ -1,9 +1,23 @@
 package symbols;
 
 import lexer.*;
-
+/**
+ *	file format: utf-8
+ * @author JeffreySharp
+ *
+ * Type 用于 强类型中的各种类型的识别与显示
+ * 这里给出了int, float, char, bool
+ * 将这几种类型都使用 static  制作了 静态对象
+ * 同时numeric 实习了数值类型 (int float char)的判断
+ * max 用于类型提升 当无法转换时返回 null
+ * */
 public class Type extends Word {
 	public int width = 0;
+	/**
+	 * s -> 用于toString
+	 * tag -> 哪个语言类型
+	 * w -> width 当前类型的宽度
+	 * */
 	public Type(String s, int tag, int w) {
 		super(s, tag);
 		width = w;

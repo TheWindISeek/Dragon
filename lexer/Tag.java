@@ -1,4 +1,10 @@
 package lexer;
+/**
+ * file format: utf-8
+ * @author JeffreySharp
+ *
+ * Tag 定义了各个词法单元对应的常量
+ * */
 public class Tag {
 	public final static int 
 		AND = 256, BASIC = 257, BREAK = 258, DO = 259, ELSE = 260,
