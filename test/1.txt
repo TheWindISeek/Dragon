@@ -1,5 +1,5 @@
 {
-    int 1i; int j; float v; float x; float[100] a;
+    int i; int j; float v; float x; float[100] a;
     while(true) {
         do i = i + 1; while(a[i] < v);
         do j = j-1; while(a[j] > v);
@@ -9,4 +9,10 @@
         a[i] = a[j];
         a[j] = x;
     }
+}
+{
+    int i; int j;
+    i = 1;
+    j = 2;
+    i = i + j;
 }

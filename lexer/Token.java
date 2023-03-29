@@ -1,7 +1,7 @@
 package lexer;
 
 /**
- * file format: utf-8
+ * file encoding: utf-8
  *
  * @author JeffreySharp
  * <p>

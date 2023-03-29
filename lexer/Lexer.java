@@ -5,14 +5,28 @@ import java.util.*;
 
 import symbols.*;
 
+/**
+ * file encoding: utf-8
+ * @author JeffreySharp
+ *
+ * 词法分析
+ * */
 public class Lexer {
+    // enf of file
+    public static IOException eof = new IOException("The file have already been read, whereas you still want to read.");
+    // record line
     public static int line = 1;
     char peek = ' ';
 
     InputStream inputStream;
     Hashtable words = new Hashtable();
 
-   boolean isMac;//选择换行符
+    boolean isMac;//选择换行符
+
+    public Hashtable getWords() {
+        return words;
+    }
+
     void reserve(Word w) {
         words.put(w.lexeme, w);
     }
@@ -67,7 +81,10 @@ public class Lexer {
     }
 
     void readch() throws IOException {
-        peek = (char) inputStream.read();
+        if (inputStream.available() != 0)
+            peek = (char) inputStream.read();
+        else
+            throw eof;
     }
 
 
@@ -82,19 +99,19 @@ public class Lexer {
      * unix: \n 0x0A
      * mac: \r 0x0D
      * win: \r\n 0x0D 0x0A
-     * */
+     */
     public Token scan() throws IOException {
         for (; ; readch()) {
             if (peek == ' ' || peek == '\t') {
                 continue;
-            }
-            else if (peek == '\r') {
-                if(isMac || readch('\n'))
+            } else if (peek == '\r') {
+                if (isMac)
+                    line = line + 1;
+                else if (readch('\n'))
                     line = line + 1;
             } else if (peek == '\n') {
                 line = line + 1;
-            }
-            else {
+            } else {
                 break;
             }
         }
