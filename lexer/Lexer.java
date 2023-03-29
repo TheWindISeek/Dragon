@@ -1,116 +1,176 @@
 package lexer;
 
-import java.io.*; import java.util.*; import symbols.*;
+import java.io.*;
+import java.util.*;
+
+import symbols.*;
 
 public class Lexer {
-	public static int line = 1;
-	char peek = ' ';
-	Hashtable words = new Hashtable();
+    public static int line = 1;
+    char peek = ' ';
 
-	void reserve(Word w) { words.put(w.lexeme, w); }
+    InputStream inputStream;
+    Hashtable words = new Hashtable();
 
-	public Lexer() {
-		reserve( new Word("if", Tag.IF) );
-		reserve( new Word("else", Tag.ELSE) );
-		reserve( new Word("while", Tag.WHILE) );
-		reserve( new Word("do", Tag.DO) );
-		reserve( new Word("break", Tag.BREAK) );
+   boolean isMac;//选择换行符
+    void reserve(Word w) {
+        words.put(w.lexeme, w);
+    }
 
-		reserve( Word.True ); 
-		reserve( Word.False );
-		reserve( Type.Int ); 
-		reserve( Type.Char );
-		reserve( Type.Bool ); 
-		reserve(Type.Float);
-	}
+    public Lexer() {
+        // 保留字
+        reserve(new Word("if", Tag.IF));
+        reserve(new Word("else", Tag.ELSE));
+        reserve(new Word("while", Tag.WHILE));
+        reserve(new Word("do", Tag.DO));
+        reserve(new Word("break", Tag.BREAK));
 
-	void readch() throws IOException { peek = (char)System.in.read(); }
+        // 类型
+        reserve(Word.True);
+        reserve(Word.False);
+        reserve(Type.Int);
+        reserve(Type.Char);
+        reserve(Type.Bool);
+        reserve(Type.Float);
 
-	boolean readch(char c) throws IOException {
-		readch();
-		if( peek != c) return false;
-		peek = ' ';
-		return true;
-	}
+        //选择输入流
+        inputStream = System.in;
 
-	public Token scan() throws IOException {
-		for (; ; readch()) {
-			if( peek == ' ' || peek == '\t' ) continue;
-			else if( peek == '\n' ) line = line + 1;
-			else break;
-		}
+        // 操作系统类型
+        char osName = System.getProperty("os.name").toString().charAt(0);
+        //W window L linux M mac U unix
+        switch (osName) {
+            case 'W':
+            case 'w':
+                isMac = false;
+                break;
+            case 'M':
+            case 'm':
+                isMac = true;
+                break;
+            case 'U':
+            case 'L':
+            case 'l':
+            case 'u':
+                isMac = false;
+                break;
+        }
+    }
 
-		switch (peek) {
-			case '&':
-				if(readch('&')) 
-					return Word.and;
-				else
-					return new Token('&');
-			case '|':
-				if(readch('|'))
-					return Word.or;
-				else
-					return new Token('|');
-			case '=':
-				if(readch('='))
-					return Word.eq;
-				else 
-					return new Token('=');
-			case '!':
-				if(readch('='))
-					return Word.ne;
-				else 
-					return new Token('!');
-			case '<':
-				if(readch('='))
-					return Word.le;
-				else 
-					return new Token('<');
-			case '>':
-				if(readch('='))
-					return Word.ge;
-				else 
-					return new Token('>'); 
-		}
+    /**
+     * file path 输入文件字符流的路径
+     */
+    public Lexer(String filePath) throws FileNotFoundException {
+        //先初始化类型
+        this();
+        inputStream = new FileInputStream(filePath);
+    }
 
-		if(Character.isDigit(peek)) {
-			int v = 0;
-			do {
-				v = 10*v + Character.digit(peek, 10);
-				readch();
-			}while(Character.isDigit(peek));
+    void readch() throws IOException {
+        peek = (char) inputStream.read();
+    }
 
-			if(peek != '.') return new Num(v);
 
-			float x = v; float d = 10;
-			for(;;) {
-				readch();
-				if( !Character.isDigit(peek) ) 
-					break;
-				x = x + Character.digit(peek, 10) / d;
-				d = d * 10;
-			}
-			return new Real(x);
-		}
+    boolean readch(char c) throws IOException {
+        readch();
+        if (peek != c) return false;
+        peek = ' ';
+        return true;
+    }
 
-		if(Character.isLetter(peek)) {
-			StringBuffer b = new StringBuffer();
-			do {
-				b.append(peek);
-				readch();
-			}while(Character.isLetterOrDigit(peek));
+    /**
+     * unix: \n 0x0A
+     * mac: \r 0x0D
+     * win: \r\n 0x0D 0x0A
+     * */
+    public Token scan() throws IOException {
+        for (; ; readch()) {
+            if (peek == ' ' || peek == '\t') {
+                continue;
+            }
+            else if (peek == '\r') {
+                if(isMac || readch('\n'))
+                    line = line + 1;
+            } else if (peek == '\n') {
+                line = line + 1;
+            }
+            else {
+                break;
+            }
+        }
 
-			String s = b.toString();
-			Word w = (Word)words.get(s);
-			if( w != null ) return w;
+        switch (peek) {
+            case '&':
+                if (readch('&'))
+                    return Word.and;
+                else
+                    return new Token('&');
+            case '|':
+                if (readch('|'))
+                    return Word.or;
+                else
+                    return new Token('|');
+            case '=':
+                if (readch('='))
+                    return Word.eq;
+                else
+                    return new Token('=');
+            case '!':
+                if (readch('='))
+                    return Word.ne;
+                else
+                    return new Token('!');
+            case '<':
+                if (readch('='))
+                    return Word.le;
+                else
+                    return new Token('<');
+            case '>':
+                if (readch('='))
+                    return Word.ge;
+                else
+                    return new Token('>');
+        }
 
-			w = new Word(s, Tag.ID);
-			words.put(s, w);
-			return w; 
-		}
+        if (Character.isDigit(peek)) {
+            int v = 0;
+            do {
+                v = 10 * v + Character.digit(peek, 10);
+                readch();
+            } while (Character.isDigit(peek));
 
-		Token tok = new Token(peek);
-		peek = ' ';
-		return tok;
-	}
+            if (peek != '.') return new Num(v);
+
+            float x = v;
+            float d = 10;
+            for (; ; ) {
+                readch();
+                if (!Character.isDigit(peek))
+                    break;
+                x = x + Character.digit(peek, 10) / d;
+                d = d * 10;
+            }
+            return new Real(x);
+        }
+
+        if (Character.isLetter(peek)) {
+            StringBuffer b = new StringBuffer();
+            do {
+                b.append(peek);
+                readch();
+            } while (Character.isLetterOrDigit(peek));
+
+            String s = b.toString();
+            Word w = (Word) words.get(s);
+            if (w != null) return w;
+
+            w = new Word(s, Tag.ID);
+            words.put(s, w);
+            return w;
+        }
+
+        Token tok = new Token(peek);
+        peek = ' ';
+        return tok;
+    }
 }
