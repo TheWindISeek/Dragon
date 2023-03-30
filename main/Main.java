@@ -11,6 +11,9 @@ import parser.*;
 import javax.rmi.CORBA.Util;
 
 /**
+ * file encoding: utf-8
+ * @author JeffreySharp
+ *
  * 是否可以处理
  * 1.不同作用域下同名的变量
  * 2.同一作用域下的重复声明
