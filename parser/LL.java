@@ -126,7 +126,7 @@ public class LL {
     }
 
     Integer transDim(NonTerminal nonTerminal, char c) {
-        System.out.println(nonTerminal.getIntValue() << 8 + (int) c);
+       // System.out.println(nonTerminal.getIntValue() << 8 + (int) c);
         return nonTerminal.getIntValue() << 8 + (int)c;
     }
 
@@ -165,6 +165,9 @@ public class LL {
 
         while (flag) {
             X = symbolStack.pop();
+
+            System.out.println("X‘s value:" + X.getValue() + " a'value:" + a);
+
             //x is termianl
             if(X instanceof Terminal) {
                 //x == #
@@ -232,7 +235,7 @@ public class LL {
         selects.add(select);
         */
         LL ll = new LL();
-        String input = "aaaabbbcbd";
+        String input = "bdddddddddddddddddddddddddddddddddddddddddddddddddddddddddddd";
 
 
         //1. init nonTerminals, terminals, productions

@@ -34,7 +34,7 @@ public class Terminal extends Symbol{
 
     @Override
     public boolean equals(Object obj) {
-        System.out.println(this.value + " equals " + ((Terminal)obj).value);
+        //System.out.println(this.value + " equals " + ((Terminal)obj).value);
         return this.value == ((Terminal)obj).value;
     }
 }
