@@ -6,6 +6,9 @@ package parser;
  * Non-Terminal
  */
 public class NonTerminal extends Symbol{
+    //COMMON used for uniform the operation of follow
+    public static final NonTerminal Begin = new NonTerminal((char)1);
+
     private final char value;
 
 
@@ -25,5 +28,10 @@ public class NonTerminal extends Symbol{
     @Override
     public boolean equals(Object obj) {
         return this.value == ((NonTerminal)obj).value;
+    }
+
+    @Override
+    public String toString() {
+        return ""+value;
     }
 }

@@ -37,4 +37,8 @@ public class Terminal extends Symbol{
         //System.out.println(this.value + " equals " + ((Terminal)obj).value);
         return this.value == ((Terminal)obj).value;
     }
+
+    public String toString() {
+        return this.value+"";
+    }
 }

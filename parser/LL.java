@@ -118,10 +118,15 @@ public class LL {
     //analysis table
     Map<Integer, Production> analysisTable = new HashMap<>();
 
+    //begin analysis symbol (non-terminal)
+    NonTerminal beginSymbol = NonTerminal.Begin;
+
+    Map<Symbol, First> firstMap = new HashMap<>();
+    Map<NonTerminal, Follow> followMap = new HashMap<>();
     // transform two indexes to one index
     Integer transDim(NonTerminal nonTerminal, Terminal terminal) {
         //show index
-        System.out.println((nonTerminal.getIntValue() << 8 + terminal.getIntValue()));
+       // System.out.println((nonTerminal.getIntValue() << 8 + terminal.getIntValue()));
         return nonTerminal.getIntValue() << 8 + terminal.getIntValue();
     }
 
@@ -144,6 +149,310 @@ public class LL {
         }
         return Terminal.End;
     }
+
+    public void geneFirst() {
+        //all terminals's first = {terminal}
+        for(Terminal t: terminals) {
+            First first = new First(t.toString());
+            first.add(t);
+
+            firsts.add(first);
+            firstMap.put(t, first);
+        }
+
+        //get all first(X)
+       // Map<NonTerminal, First> map = new HashMap<>();
+        for(NonTerminal nt: nonTerminals) {
+            firstMap.put(nt, new First(nt.toString()));
+        }
+
+        for(Production production: productions) {
+            //if X -> a...
+            Symbol symbol = getSymbols(production.getRight().charAt(0));
+            if(symbol instanceof Terminal) {
+                firstMap.get(production.getLeft()).add((Terminal) symbol);
+            }
+        }
+
+        for(int i = 0; i < 2; ++i) {
+            for(Production production: productions) {
+                //if X -> Y1 Y2 Y3 ....
+                int index = 0;
+                Symbol symbol = getSymbols(production.getRight().charAt(index));
+                if(symbol instanceof NonTerminal) {
+                    First X = firstMap.get(production.getLeft());
+                    First Y = firstMap.get((NonTerminal) symbol);
+                    boolean end = false;
+                    for(Terminal t:Y.getRight()) {
+                        if(t.equals(Terminal.Empty)) {
+                            end = true;
+                            continue;
+                        }
+                        X.add(t);
+                    }
+
+                    while (end) {
+                        //if find all non terminal
+                        if(index + 1 == production.getRight().length()) {
+                            break;
+                        }
+                        symbol = getSymbols(production.getRight().charAt(++index));
+                        if(symbol instanceof Terminal) {
+                            end = false;
+                            break;
+                        }
+                        Y = firstMap.get((NonTerminal) symbol);
+                        end = false;
+                        for (Terminal t: Y.getRight()) {
+                            if(t.equals(Terminal.Empty)) {
+                                end = true;
+                                continue;
+                            }
+                            X.add(t);
+                        }
+                    }
+
+                    //all Y have sigma
+                    if(end) {
+                        X.add(Terminal.Empty);
+                    }
+                }
+            }
+        }
+
+        //add all first to firsts
+        for(Map.Entry<Symbol, First> entry: firstMap.entrySet()) {
+            firsts.add(entry.getValue());
+        }
+    }
+
+    /**
+     * generate follow set from first set
+     *      *        First first_AaSa = new First("AaS");
+     *      *         first_AaSa.Add(a);
+     *      *         First first_BbS = new First("BbS");
+     *      *         first_BbS.Add(c);
+     *      *         first_BbS.Add(b);
+     *      *         First first_d = new First("d");
+     *      *         first_d.Add(d);
+     *      *         First first_a = new First("a");
+     *      *         first_a.Add(a);
+     *      *         First first_sigma = new First("$");
+     *      *         first_sigma.Add(Terminal.Empty);
+     *      *         First first_c = new First("c");
+     *      *         first_c.Add(c);
+     *      *         //add to firsts
+     *      *         ll.firsts.add(first_AaSa);
+     *      *         ll.firsts.add(first_BbS);
+     *      *         ll.firsts.add(first_d);
+     *      *         ll.firsts.add(first_a);
+     *      *         ll.firsts.add(first_c);
+     *      *         ll.first.add(first_sigma);
+     *      *
+     *      *         Follow follow_S = new Follow(S, Terminal.End);
+     *      *         Follow follow_A = new Follow(A, a);
+     *      *         Follow follow_B = new Follow(B, b);
+     *      *         //add to follows
+     *      *         ll.follows.add(follow_S);
+     *      *         ll.follows.add(follow_A);
+     *      *         ll.follows.add(follow_B);
+     */
+    public void geneFollow() {
+        Follow follow_beginSymbol = new Follow(beginSymbol, Terminal.End);
+
+        followMap.put(beginSymbol,follow_beginSymbol);
+        for(NonTerminal nonTerminal:nonTerminals) {
+            followMap.put(nonTerminal, new Follow(nonTerminal));
+        }
+
+        //the first production's left is begin!
+        for(int i = 0; i < 2; ++i) {
+            for(Production production:productions) {
+                NonTerminal left = production.getLeft();
+                String right = production.getRight();
+                int index = 0;
+                Symbol symbol = getSymbols(right.charAt(index++));
+                //find the first non-terminal of production
+                while (symbol instanceof Terminal && index < right.length()) {
+                    symbol = getSymbols(right.charAt(index++));
+                }
+                //really found
+                if(symbol instanceof NonTerminal) {
+                    boolean empty = false;
+                    NonTerminal B = (NonTerminal) symbol;
+                    symbol = index < right.length() ? getSymbols(right.charAt(index)) : Terminal.Empty;
+                    //get next char's first set
+                    First first = firstMap.get(symbol);
+                    Follow follow = followMap.get(B);
+
+                    for(Terminal t:first.getRight()) {
+                        if(t.equals(Terminal.Empty)) {
+                            empty = true;
+                            continue;
+                        }
+                        follow.add(t);
+                    }
+
+                    //if sigma belong to beta
+                    if(empty) {
+                        //follow(B) += follow(A)
+                        for(Terminal t: followMap.get(left).getRight()) {
+                            follow.add(t);
+                        }
+                    }
+                }
+            }
+        }
+
+        for(Map.Entry<NonTerminal,Follow> followEntry:followMap.entrySet()) {
+            follows.add(followEntry.getValue());
+        }
+    }
+    /**
+     * generate selects set from first set and follow set
+     *        First first_AaSa = new First("AaS");
+     *         first_AaSa.Add(a);
+     *         First first_BbS = new First("BbS");
+     *         first_BbS.Add(c);
+     *         first_BbS.Add(b);
+     *         First first_d = new First("d");
+     *         first_d.Add(d);
+     *         First first_a = new First("a");
+     *         first_a.Add(a);
+     *         First first_sigma = new First("$");
+     *         first_sigma.Add(Terminal.Empty);
+     *         First first_c = new First("c");
+     *         first_c.Add(c);
+     *         //add to firsts
+     *         ll.firsts.add(first_AaSa);
+     *         ll.firsts.add(first_BbS);
+     *         ll.firsts.add(first_d);
+     *         ll.firsts.add(first_a);
+     *         ll.firsts.add(first_c);
+     *
+     *         Follow follow_S = new Follow(S, Terminal.End);
+     *         Follow follow_A = new Follow(A, a);
+     *         Follow follow_B = new Follow(B, b);
+     *         //add to follows
+     *         ll.follows.add(follow_S);
+     *         ll.follows.add(follow_A);
+     *         ll.follows.add(follow_B);
+     *
+     *         Select select_SAaS = new Select(SAaS);
+     *         select_SAaS.Add(a);
+     *         Select select_SBbS = new Select(SBbS);
+     *         select_SBbS.Add(c);
+     *         select_SBbS.Add(b);
+     *         Select select_Sd = new Select(Sd);
+     *         select_Sd.Add(d);
+     *         Select select_Aa = new Select(Aa);
+     *         select_Aa.Add(a);
+     *         Select select_B_ = new Select(B_);
+     *         select_B_.Add(b);
+     *         Select select_Bc = new Select(Bc);
+     *         select_Bc.Add(c);
+     *         //add to selects
+     *         ll.selects.add(select_SAaS);
+     *         ll.selects.add(select_SBbS);
+     *         ll.selects.add(select_Sd);
+     *         ll.selects.add(select_Aa);
+     *         ll.selects.add(select_B_);
+     *         ll.selects.add(select_Bc);
+     */
+    public void geneSelects() {
+        for (Production production: productions) {
+            Select select = new Select(production);
+            for (First first :firsts) {
+                System.out.print("first\t"+first.getLeft());
+                System.out.print(production.getLeft().toString());
+                System.out.println();
+                if(first.getLeft().equals(production.getLeft().toString())) {
+                    //find the production's first
+                    if(first.contain(Terminal.Empty)) {
+                        //select(production) = first(production)-sigma + follow(production)
+                        for (Terminal t: first.getRight()) {
+                            if(t.equals(Terminal.Empty)) continue;
+                            select.add(t);
+                        }
+
+                        for (Follow follow : follows) {
+                            if (production.getLeft().equals(follow.getLeft())) {
+                                for(Terminal t: follow.getRight()) {
+                                    select.add(t);
+                                }
+                            }
+                        }
+                    } else {
+                        //select(production) = first(production)
+                        for(Terminal t:first.getRight()) {
+                            select.add(t);
+                        }
+                    }
+                    break;
+                }
+            }
+            //add select to selects
+            selects.add(select);
+        }
+    }
+
+    /**
+     * from select set
+     * generate analysis table
+     *
+     *         Integer integer_Sa = ll.transDim(S, a);
+     *         Integer integer_Sb = ll.transDim(S, b);
+     *         Integer integer_Sc = ll.transDim(S, c);
+     *         Integer integer_Sd = ll.transDim(S, d);
+     *         Integer integer_Aa = ll.transDim(A, a);
+     *         Integer integer_Bb = ll.transDim(B, b);
+     *         Integer integer_Bc = ll.transDim(B, c);
+     *
+     *         ll.analysisTable.put(integer_Sa, SAaS);
+     *         ll.analysisTable.put(integer_Sb, SBbS);
+     *         ll.analysisTable.put(integer_Sc, SBbS);
+     *         ll.analysisTable.put(integer_Sd, Sd);
+     *         ll.analysisTable.put(integer_Aa, Aa);
+     *         ll.analysisTable.put(integer_Bb, B_);
+     *         ll.analysisTable.put(integer_Bc, Bc);
+     *
+     *         Select select_SAaS = new Select(SAaS);
+     *         select_SAaS.Add(a);
+     *         Select select_SBbS = new Select(SBbS);
+     *         select_SBbS.Add(c);
+     *         select_SBbS.Add(b);
+     *         Select select_Sd = new Select(Sd);
+     *         select_Sd.Add(d);
+     *         Select select_Aa = new Select(Aa);
+     *         select_Aa.Add(a);
+     *         Select select_B_ = new Select(B_);
+     *         select_B_.Add(b);
+     *         Select select_Bc = new Select(Bc);
+     *         select_Bc.Add(c);
+     *         //add to selects
+     *         ll.selects.add(select_SAaS);
+     *         ll.selects.add(select_SBbS);
+     *         ll.selects.add(select_Sd);
+     *         ll.selects.add(select_Aa);
+     *         ll.selects.add(select_B_);
+     *         ll.selects.add(select_Bc);
+     */
+    public void geneAnalysisTable() {
+        for (Select s: selects) {
+            //production used for select
+            Production left = s.getLeft();
+            //current production's select set
+            Set<Terminal> right = s.getRight();
+            //left part of production
+            NonTerminal nonTerminal = left.getLeft();
+
+            for (Terminal t :right) {
+                System.out.println(nonTerminal.getValue() + "\t" + t.getValue());
+                this.analysisTable.put(transDim(nonTerminal, t), left);
+            }
+        }
+    }
+
     /**
      * LL(1) analysis
      * using analysis table
@@ -159,15 +468,12 @@ public class LL {
         //symbols stack; first we push #
         Stack<Symbol> symbolStack = new Stack<>();
         symbolStack.push(Terminal.End);
-        symbolStack.push(getSymbols('S'));
+        symbolStack.push(beginSymbol);
         //the top of Stack
         Symbol X;
 
         while (flag) {
             X = symbolStack.pop();
-
-            System.out.println("X‘s value:" + X.getValue() + " a'value:" + a);
-
             //x is termianl
             if(X instanceof Terminal) {
                 //x == #
@@ -206,6 +512,51 @@ public class LL {
         return true;
     }
 
+    /**
+     * show the analysis table use the format as follow.
+     *         a        b    c    d    #
+     *  S   S->AaS S->BbS S->BbS S->d
+     *  A    A->a
+     *  B           B->$    B->c
+     * @Param width: the max length of production
+     */
+    void showAnalysisTable(int width) {
+        //table head
+        String format = "%-" + width + "s";
+        System.out.printf(format, "");
+        for (Terminal t : terminals) {
+            System.out.printf(format, t.getValue());
+        }
+        System.out.println();
+        //table items
+        for (NonTerminal nt: nonTerminals) {
+            System.out.printf(format,nt.getValue());
+            for (Terminal t: terminals) {
+                String output = "";
+                // end and empty should not have production
+                if(!t.equals(Terminal.End) && !t.equals(Terminal.Empty)) {
+                    //if exists production
+                    int key = transDim(nt, t);
+                    if(analysisTable.containsKey(key)) {
+                        output = analysisTable.get(key).toString();
+                    }
+                }
+                System.out.printf(format, output);
+            }
+            System.out.println();
+        }
+    }
+
+    void showFirst() {
+        for (First first : firsts) {
+            System.out.print(first.getLeft() + "\t=\t");
+            for (Terminal t :
+                    first.getRight()) {
+                System.out.print(t.toString() + " ");
+            }
+            System.out.println();
+        }
+    }
     public static void main(String[] args) {
         /*
         Terminal terminal = new Terminal('a');
@@ -235,7 +586,7 @@ public class LL {
         selects.add(select);
         */
         LL ll = new LL();
-        String input = "bdddddddddddddddddddddddddddddddddddddddddddddddddddddddddddd";
+        String input = "aabd";
 
 
         //1. init nonTerminals, terminals, productions
@@ -247,6 +598,8 @@ public class LL {
         ll.nonTerminals.add(S);
         ll.nonTerminals.add(A);
         ll.nonTerminals.add(B);
+
+        ll.nonTerminals.add(NonTerminal.Begin);
 
         //All Terminal
         Terminal a = new Terminal('a');
@@ -264,10 +617,16 @@ public class LL {
         //All Productions
         Production SAaS = new Production(S,"AaS", 1);
         Production SBbS = new Production(S, "BbS", 2);
-        Production Aa = new Production(B, "a", 3);
+        Production Aa = new Production(A, "a", 3);
         Production B_ = new Production(B, "$", 4);
         Production Bc = new Production(B, "c", 5);
         Production Sd = new Production(S, "d", 6);
+
+        Production S_S = new Production(NonTerminal.Begin,S.toString(),7);
+        Production S_A = new Production(NonTerminal.Begin,A.toString(),8);
+        Production S_B = new Production(NonTerminal.Begin,B.toString(),9);
+
+
         //add to productions
         ll.productions.add(SAaS);
         ll.productions.add(SBbS);
@@ -276,78 +635,84 @@ public class LL {
         ll.productions.add(Bc);
         ll.productions.add(Sd);
 
+        ll.productions.add(S_A);
+        ll.productions.add(S_B);
+        ll.productions.add(S_S);
 
         //2. we have firsts, follows
-        First first_AaSa = new First("AaS");
-        first_AaSa.Add(a);
-        First first_BbS = new First("BbS");
-        first_BbS.Add(c);
-        first_BbS.Add(b);
-        First first_d = new First("d");
-        first_d.Add(d);
-        First first_a = new First("a");
-        first_a.Add(a);
-        First first_sigma = new First("$");
-        first_sigma.Add(Terminal.Empty);
-        First first_c = new First("c");
-        first_c.Add(c);
-        //add to firsts
-        ll.firsts.add(first_AaSa);
-        ll.firsts.add(first_BbS);
-        ll.firsts.add(first_d);
-        ll.firsts.add(first_a);
-        ll.firsts.add(first_c);
+//        First first_AaSa = new First("AaS");
+//        first_AaSa.add(a);
+//        First first_BbS = new First("BbS");
+//        first_BbS.add(c);
+//        first_BbS.add(b);
+//        First first_d = new First("d");
+//        first_d.add(d);
+//        First first_a = new First("a");
+//        first_a.add(a);
+//        First first_sigma = new First("$");
+//        first_sigma.add(Terminal.Empty);
+//        First first_c = new First("c");
+//        first_c.add(c);
+//        //add to firsts
+//        ll.firsts.add(first_AaSa);
+//        ll.firsts.add(first_BbS);
+//        ll.firsts.add(first_d);
+//        ll.firsts.add(first_a);
+//        ll.firsts.add(first_c);
+//        ll.firsts.add(first_sigma);
+        ll.geneFirst();
+        ll.showFirst();
+        ll.geneFollow();
 
-        Follow follow_S = new Follow(S, Terminal.End);
-        Follow follow_A = new Follow(A, a);
-        Follow follow_B = new Follow(B, b);
-        //add to follows
-        ll.follows.add(follow_S);
-        ll.follows.add(follow_A);
-        ll.follows.add(follow_B);
-
-
+//        Follow follow_S = new Follow(S, Terminal.End);
+//        Follow follow_A = new Follow(A, a);
+//        Follow follow_B = new Follow(B, b);
+//        //add to follows
+//        ll.follows.add(follow_S);
+//        ll.follows.add(follow_A);
+//        ll.follows.add(follow_B);
 
         //3.we even have Select
-        Select select_SAaS = new Select(SAaS);
-        select_SAaS.Add(a);
-        Select select_SBbS = new Select(SBbS);
-        select_SBbS.Add(c);
-        select_SBbS.Add(b);
-        Select select_Sd = new Select(Sd);
-        select_Sd.Add(d);
-        Select select_Aa = new Select(Aa);
-        select_Aa.Add(a);
-        Select select_B_ = new Select(B_);
-        select_B_.Add(b);
-        Select select_Bc = new Select(Bc);
-        select_Bc.Add(c);
-        //add to selects
-        ll.selects.add(select_SAaS);
-        ll.selects.add(select_SBbS);
-        ll.selects.add(select_Sd);
-        ll.selects.add(select_Aa);
-        ll.selects.add(select_B_);
-        ll.selects.add(select_Bc);
+//        Select select_SAaS = new Select(SAaS);
+//        select_SAaS.add(a);
+//        Select select_SBbS = new Select(SBbS);
+//        select_SBbS.add(c);
+//        select_SBbS.add(b);
+//        Select select_Sd = new Select(Sd);
+//        select_Sd.add(d);
+//        Select select_Aa = new Select(Aa);
+//        select_Aa.add(a);
+//        Select select_B_ = new Select(B_);
+//        select_B_.add(b);
+//        Select select_Bc = new Select(Bc);
+//        select_Bc.add(c);
+//        //add to selects
+//        ll.selects.add(select_SAaS);
+//        ll.selects.add(select_SBbS);
+//        ll.selects.add(select_Sd);
+//        ll.selects.add(select_Aa);
+//        ll.selects.add(select_B_);
+//        ll.selects.add(select_Bc);
+        ll.geneSelects();
 
         //4.analysis table!!!
-        Integer integer_Sa = ll.transDim(S, a);
-        Integer integer_Sb = ll.transDim(S, b);
-        Integer integer_Sc = ll.transDim(S, c);
-        Integer integer_Sd = ll.transDim(S, d);
-        Integer integer_Aa = ll.transDim(A, a);
-        Integer integer_Bb = ll.transDim(B, b);
-        Integer integer_Bc = ll.transDim(B, c);
-
-        ll.analysisTable.put(integer_Sa, SAaS);
-        ll.analysisTable.put(integer_Sb, SBbS);
-        ll.analysisTable.put(integer_Sc, SBbS);
-        ll.analysisTable.put(integer_Sd, Sd);
-        ll.analysisTable.put(integer_Aa, Aa);
-        ll.analysisTable.put(integer_Bb, B_);
-        ll.analysisTable.put(integer_Bc, Bc);
-
-
+//        Integer integer_Sa = ll.transDim(S, a);
+//        Integer integer_Sb = ll.transDim(S, b);
+//        Integer integer_Sc = ll.transDim(S, c);
+//        Integer integer_Sd = ll.transDim(S, d);
+//        Integer integer_Aa = ll.transDim(A, a);
+//        Integer integer_Bb = ll.transDim(B, b);
+//        Integer integer_Bc = ll.transDim(B, c);
+//
+//        ll.analysisTable.put(integer_Sa, SAaS);
+//        ll.analysisTable.put(integer_Sb, SBbS);
+//        ll.analysisTable.put(integer_Sc, SBbS);
+//        ll.analysisTable.put(integer_Sd, Sd);
+//        ll.analysisTable.put(integer_Aa, Aa);
+//        ll.analysisTable.put(integer_Bb, B_);
+//        ll.analysisTable.put(integer_Bc, Bc);
+        ll.geneAnalysisTable();
+        ll.showAnalysisTable(10);
 
         //5.adjust the result
         System.out.println(ll.isLegal(input));
