@@ -183,6 +183,9 @@ public class LL {
             //already have
             if(!(symbol instanceof NonTerminal)) {
                 symbol = new NonTerminal(left.charAt(0));
+                if(nonTerminals.size() == 0) {
+                    beginSymbol = ((NonTerminal) symbol);
+                }
                 nonTerminals.add((NonTerminal) symbol);
             }
             //add production and nonterminal
@@ -236,7 +239,8 @@ public class LL {
                 if(production.getRight().length() == 1) continue;
                 //right part also should be added to first list
                 First rightFirst = new First(production.getRight());
-                copySet(rightFirst.getRight(),first.getRight());
+//                copySet(rightFirst.getRight(),first.getRight());
+                rightFirst.add((Terminal) symbol);
                 stringFirstMap.put(production.getRight(),rightFirst);
             }
         }
@@ -338,6 +342,46 @@ public class LL {
     }
 
     /**
+     * recursive slove follow
+     * @param left left part of Non-terminal
+     * @param index from index to length
+     * @param right production body
+     */
+    private void followFromIndex(NonTerminal left, int index, String right) {
+        Symbol symbol = getSymbols(right.charAt(index++));
+        //find the first non-terminal of production
+        while (symbol instanceof Terminal && index < right.length()) {
+            symbol = getSymbols(right.charAt(index++));
+        }
+
+        //really found
+        if(symbol instanceof NonTerminal) {
+            boolean empty = false;
+            NonTerminal B = (NonTerminal) symbol;
+            symbol = index < right.length() ? getSymbols(right.charAt(index)) : Terminal.Empty;
+            //get next char's first set
+            First first = firstMap.get(symbol);
+            Follow follow = followMap.get(B);
+
+            for(Terminal t:first.getRight()) {
+                if(t.equals(Terminal.Empty)) {
+                    empty = true;
+                    continue;
+                }
+                follow.add(t);
+            }
+
+            //if sigma belong to beta
+            if(empty) {
+                //follow(B) += follow(A)
+                for(Terminal t: followMap.get(left).getRight()) {
+                    follow.add(t);
+                }
+            }
+        }
+    }
+
+    /**
      * generate follow set from first set
      *      *        First first_AaSa = new First("AaS");
      *      *         first_AaSa.Add(a);
@@ -369,7 +413,7 @@ public class LL {
      *      *         ll.follows.add(follow_B);
      */
     public void geneFollow() {
-        beginSymbol = getBeginSymbol();
+//        beginSymbol = getBeginSymbol();
 
         //all non-terminal to follow map
         Follow follow_beginSymbol = new Follow(beginSymbol, Terminal.End);
@@ -385,35 +429,9 @@ public class LL {
                 NonTerminal left = production.getLeft();
                 String right = production.getRight();
                 int index = 0;
-                Symbol symbol = getSymbols(right.charAt(index++));
-                //find the first non-terminal of production
-                while (symbol instanceof Terminal && index < right.length()) {
-                    symbol = getSymbols(right.charAt(index++));
-                }
-                //really found
-                if(symbol instanceof NonTerminal) {
-                    boolean empty = false;
-                    NonTerminal B = (NonTerminal) symbol;
-                    symbol = index < right.length() ? getSymbols(right.charAt(index)) : Terminal.Empty;
-                    //get next char's first set
-                    First first = firstMap.get(symbol);
-                    Follow follow = followMap.get(B);
-
-                    for(Terminal t:first.getRight()) {
-                        if(t.equals(Terminal.Empty)) {
-                            empty = true;
-                            continue;
-                        }
-                        follow.add(t);
-                    }
-
-                    //if sigma belong to beta
-                    if(empty) {
-                        //follow(B) += follow(A)
-                        for(Terminal t: followMap.get(left).getRight()) {
-                            follow.add(t);
-                        }
-                    }
+                while (index < right.length()) {
+                    followFromIndex(left,index,right);
+                    index++;
                 }
             }
         }
@@ -478,27 +496,25 @@ public class LL {
         for (Production production: productions) {
             Select select = new Select(production);
             for (First first :firsts) {
+                //adjust first's content and production's right part
                 if(first.getLeft().equals(production.getRight().toString())) {
                     //find the production's first
+
+                    //if contain sigma then select(production) = first(production)-sigma + follow(production)
                     if(first.contain(Terminal.Empty)) {
-                        //select(production) = first(production)-sigma + follow(production)
                         for (Terminal t: first.getRight()) {
                             if(t.equals(Terminal.Empty)) continue;
                             select.add(t);
                         }
-
+                        //add rest's follow
                         for (Follow follow : follows) {
                             if (production.getLeft().equals(follow.getLeft())) {
-                                for(Terminal t: follow.getRight()) {
-                                    select.add(t);
-                                }
+                                copySet(select.getRight(),follow.getRight());
                             }
                         }
                     } else {
                         //select(production) = first(production)
-                        for(Terminal t:first.getRight()) {
-                            select.add(t);
-                        }
+                        copySet(select.getRight(), first.getRight());
                     }
                     break;
                 }
@@ -559,6 +575,7 @@ public class LL {
             NonTerminal nonTerminal = left.getLeft();
 
             for (Terminal t :right) {
+//                System.out.println(nonTerminal.getValue() + "\t......\t"+t.getValue() + "////" + left);
                 this.analysisTable.put(transDim(nonTerminal, t), left);
             }
         }
@@ -646,7 +663,7 @@ public class LL {
             for (Terminal t: terminals) {
                 String output = "";
                 // end and empty should not have production
-                if(!t.equals(Terminal.End) && !t.equals(Terminal.Empty)) {
+                if(!t.equals(Terminal.Empty)) {
                     //if exists production
                     int key = transDim(nt, t);
                     if(analysisTable.containsKey(key)) {
@@ -716,6 +733,23 @@ public class LL {
             System.out.println(production);
         }
     }
+
+    public void program(String input, String grammar) {
+        this.geneProduction(grammar);
+        this.showTerminal();
+        this.showNonTerminal();
+        this.showProduction();
+        this.geneFirst();
+        this.showFirst();
+        this.geneFollow();
+        this.showFollow();
+        this.geneSelects();
+        this.showSelect();
+        this.geneAnalysisTable();
+        this.showAnalysisTable(10);
+        this.showBeginSymbol();
+        System.out.println(this.isLegal(input));
+    }
     public static void main(String[] args) {
         /*
         Terminal terminal = new Terminal('a');
@@ -745,8 +779,10 @@ public class LL {
         selects.add(select);
         */
         LL ll = new LL();
-        String input = "aabd";
-        String grammar = "S AaS\nS BbS\nS d\nA a\nB $\nB c";
+        String input = "a*a+a";
+//        String grammar = "S AaS\nS BbS\nS d\nA a\nB $\nB c";
+        String grammar = "E TQ\nQ +TQ\nQ $\nT FW\nW *FW\nW $\nF (E)\nF a";
+
 //
 //        //1. init nonTerminals, terminals, productions
 //        //All nonTerminals

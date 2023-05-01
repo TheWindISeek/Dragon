@@ -58,7 +58,15 @@ public class Main {
             }
         }
     }
+
+    public static void lab2() {
+        LL ll = new LL();
+        ll.program("a*a+a", "E TQ\nQ +TQ\nQ $\nT FW\nW *FW\nW $\nF (E)\nF a");
+    }
     public static void main(String[] args) throws IOException {
+        System.out.println("result of lab1");
         lab1();
+        System.out.println("result of lab2");
+        lab2();
     }
 }
