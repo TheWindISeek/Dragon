@@ -262,6 +262,35 @@ public class LL {
         }
     }
 
+    public NonTerminal getBeginSymbol() {
+        //根据现有的产生式 找到文法的开始符号
+        //入度为0的点 但是左边是它自己的话 不应该算入度
+        Set<NonTerminal> indegeree = new HashSet<>();
+        for(Production production: productions) {
+            String right = production.getRight();
+            NonTerminal left = production.getLeft();
+            int index = 0;
+            Symbol symbol;
+
+            while (index < right.length()) {
+                symbol = getSymbols(right.charAt(index++));
+                //非终结符号 且左边不是他自己
+                if(symbol instanceof NonTerminal
+                    && !((NonTerminal)symbol).equals(left)) {
+                    indegeree.add((NonTerminal) symbol);
+                }
+            }
+        }
+
+        for(NonTerminal nt: nonTerminals) {
+            if(!indegeree.contains(nt)) {
+                return nt;
+            }
+        }
+        //此时就无法确定开始符号了 随机返回一个作为开始符号
+        return nonTerminals.iterator().next();
+    }
+
     /**
      * generate follow set from first set
      *      *        First first_AaSa = new First("AaS");
@@ -294,8 +323,10 @@ public class LL {
      *      *         ll.follows.add(follow_B);
      */
     public void geneFollow() {
-        Follow follow_beginSymbol = new Follow(beginSymbol, Terminal.End);
+        beginSymbol = getBeginSymbol();
 
+        //all non-terminal to follow map
+        Follow follow_beginSymbol = new Follow(beginSymbol, Terminal.End);
         followMap.put(beginSymbol,follow_beginSymbol);
         for(NonTerminal nonTerminal:nonTerminals) {
             followMap.put(nonTerminal, new Follow(nonTerminal));
@@ -481,7 +512,6 @@ public class LL {
             NonTerminal nonTerminal = left.getLeft();
 
             for (Terminal t :right) {
-                System.out.println(nonTerminal.getValue() + "\t" + t.getValue());
                 this.analysisTable.put(transDim(nonTerminal, t), left);
             }
         }
@@ -647,7 +677,7 @@ public class LL {
         ll.nonTerminals.add(A);
         ll.nonTerminals.add(B);
 
-        ll.nonTerminals.add(NonTerminal.Begin);
+//        ll.nonTerminals.add(NonTerminal.Begin);
 
         //All Terminal
         Terminal a = new Terminal('a');
@@ -670,9 +700,9 @@ public class LL {
         Production Bc = new Production(B, "c", 5);
         Production Sd = new Production(S, "d", 6);
 
-        Production S_S = new Production(NonTerminal.Begin,S.toString(),7);
-        Production S_A = new Production(NonTerminal.Begin,A.toString(),8);
-        Production S_B = new Production(NonTerminal.Begin,B.toString(),9);
+//        Production S_S = new Production(NonTerminal.Begin,S.toString(),7);
+//        Production S_A = new Production(NonTerminal.Begin,A.toString(),8);
+//        Production S_B = new Production(NonTerminal.Begin,B.toString(),9);
 
 
         //add to productions
@@ -683,9 +713,9 @@ public class LL {
         ll.productions.add(Bc);
         ll.productions.add(Sd);
 
-        ll.productions.add(S_A);
-        ll.productions.add(S_B);
-        ll.productions.add(S_S);
+//        ll.productions.add(S_A);
+//        ll.productions.add(S_B);
+//        ll.productions.add(S_S);
 
         //2. we have firsts, follows
 //        First first_AaSa = new First("AaS");
