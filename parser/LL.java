@@ -117,12 +117,16 @@ public class LL {
     List<Select> selects = new ArrayList<>();
     //analysis table
     Map<Integer, Production> analysisTable = new HashMap<>();
-
     //begin analysis symbol (non-terminal)
     NonTerminal beginSymbol = NonTerminal.Begin;
 
     Map<Symbol, First> firstMap = new HashMap<>();
     Map<NonTerminal, Follow> followMap = new HashMap<>();
+    Map<String, First> stringFirstMap = new HashMap<>();
+
+
+
+
     // transform two indexes to one index
     Integer transDim(NonTerminal nonTerminal, Terminal terminal) {
         //show index
@@ -150,6 +154,13 @@ public class LL {
         return Terminal.End;
     }
 
+    //cpoy set from "from" to "to"
+    private <T>void copySet(Set<T> to, Set<T> from) {
+        for (T item :from) {
+            to.add(item);
+        }
+    }
+
     public void geneFirst() {
         //all terminals's first = {terminal}
         for(Terminal t: terminals) {
@@ -170,7 +181,17 @@ public class LL {
             //if X -> a...
             Symbol symbol = getSymbols(production.getRight().charAt(0));
             if(symbol instanceof Terminal) {
-                firstMap.get(production.getLeft()).add((Terminal) symbol);
+                //skip X -> sigma
+//                if(((Terminal)symbol).equals(Terminal.Empty)) continue;
+                First first = firstMap.get(production.getLeft());
+                first.add((Terminal) symbol);
+
+                //if right part only have one symbols which is terminal, then we should skip this case.
+                if(production.getRight().length() == 1) continue;
+                //right part also should be added to first list
+                First rightFirst = new First(production.getRight());
+                copySet(rightFirst.getRight(),first.getRight());
+                stringFirstMap.put(production.getRight(),rightFirst);
             }
         }
 
@@ -180,7 +201,7 @@ public class LL {
                 int index = 0;
                 Symbol symbol = getSymbols(production.getRight().charAt(index));
                 if(symbol instanceof NonTerminal) {
-                    First X = firstMap.get(production.getLeft());
+                    First X = new First(production.getRight());
                     First Y = firstMap.get((NonTerminal) symbol);
                     boolean end = false;
                     for(Terminal t:Y.getRight()) {
@@ -192,12 +213,14 @@ public class LL {
                     }
 
                     while (end) {
-                        //if find all non terminal
+                        //find all non-terminal
                         if(index + 1 == production.getRight().length()) {
                             break;
                         }
                         symbol = getSymbols(production.getRight().charAt(++index));
+                        //the terminal should be included in the first
                         if(symbol instanceof Terminal) {
+                            X.add((Terminal) symbol);
                             end = false;
                             break;
                         }
@@ -216,12 +239,25 @@ public class LL {
                     if(end) {
                         X.add(Terminal.Empty);
                     }
+                    //right part which is Y1Y2Y3...
+                    System.out.println(production);
+//                    System.out.println("production.getright\t" + production.getRight());
+                    stringFirstMap.put(production.getRight(),X);
+                    //left part which is X
+                    First first = firstMap.get(production.getLeft());
+//                    System.out.println("production.getleft\t" + first.getLeft());
+                    copySet(first.getRight(),X.getRight());
                 }
             }
         }
 
         //add all first to firsts
         for(Map.Entry<Symbol, First> entry: firstMap.entrySet()) {
+            if(entry.getKey() instanceof NonTerminal)
+                firsts.add(entry.getValue());
+        }
+        for(Map.Entry<String, First> entry: stringFirstMap.entrySet()) {
+            System.out.println("key:\t" + entry.getKey() + "\tvalue:\t" + entry.getValue().getLeft());
             firsts.add(entry.getValue());
         }
     }
@@ -304,6 +340,7 @@ public class LL {
             }
         }
 
+        //to follow list
         for(Map.Entry<NonTerminal,Follow> followEntry:followMap.entrySet()) {
             follows.add(followEntry.getValue());
         }
@@ -363,10 +400,7 @@ public class LL {
         for (Production production: productions) {
             Select select = new Select(production);
             for (First first :firsts) {
-                System.out.print("first\t"+first.getLeft());
-                System.out.print(production.getLeft().toString());
-                System.out.println();
-                if(first.getLeft().equals(production.getLeft().toString())) {
+                if(first.getLeft().equals(production.getRight().toString())) {
                     //find the production's first
                     if(first.contain(Terminal.Empty)) {
                         //select(production) = first(production)-sigma + follow(production)
@@ -521,6 +555,7 @@ public class LL {
      * @Param width: the max length of production
      */
     void showAnalysisTable(int width) {
+        System.out.println("the result table are as followed.");
         //table head
         String format = "%-" + width + "s";
         System.out.printf(format, "");
@@ -548,10 +583,23 @@ public class LL {
     }
 
     void showFirst() {
+        System.out.println("first are as followed.");
         for (First first : firsts) {
             System.out.print(first.getLeft() + "\t=\t");
             for (Terminal t :
                     first.getRight()) {
+                System.out.print(t.toString() + " ");
+            }
+            System.out.println();
+        }
+    }
+
+    void showSelect() {
+        System.out.println("select are as followed.");
+        for(Select select:selects) {
+            System.out.print(select.getLeft() + "\t=\t");
+            for (Terminal t :
+                    select.getRight()) {
                 System.out.print(t.toString() + " ");
             }
             System.out.println();
@@ -694,6 +742,7 @@ public class LL {
 //        ll.selects.add(select_B_);
 //        ll.selects.add(select_Bc);
         ll.geneSelects();
+        ll.showSelect();
 
         //4.analysis table!!!
 //        Integer integer_Sa = ll.transDim(S, a);
