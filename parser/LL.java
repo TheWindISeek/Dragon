@@ -1,6 +1,7 @@
 package parser;
 
 import java.util.*;
+import java.util.stream.Stream;
 
 /**
  * @author JeffreySharp
@@ -161,6 +162,51 @@ public class LL {
         }
     }
 
+    /**
+     * generate terminals, nontermianls, productions using grammar
+     * which is
+     * String grammar = "S AaS\nS BbS\nS d\nA a\nB $\nB c";
+     * @param grammar
+     */
+    public void geneProduction(String grammar) {
+        String[] splits = grammar.split("\n");
+
+        StringBuffer symbols = new StringBuffer();
+        int index = 1;
+        for (String s_production:splits) {
+            String[] strings = s_production.split(" ");
+            //0->NonTermianl 1->right
+            String left = strings[0];
+            String right = strings[1];
+            //add nonterminal and production to set
+            Symbol symbol = getSymbols(left.charAt(0));
+            //already have
+            if(!(symbol instanceof NonTerminal)) {
+                symbol = new NonTerminal(left.charAt(0));
+                nonTerminals.add((NonTerminal) symbol);
+            }
+            //add production and nonterminal
+            Production production = new Production((NonTerminal) symbol, right, index);
+            productions.add(production);
+            symbols.append(right);
+        }
+        //add terminal
+        for (int i = 0; i < symbols.length(); i++) {
+            char c = symbols.charAt(i);
+            Symbol symbol = getSymbols(c);
+            //we finally process sigma
+            if(symbol instanceof NonTerminal) continue;
+            if(c == '$') continue;
+            //if not found
+            if(symbol.equals(Terminal.End)) {
+                terminals.add(new Terminal(c));
+            }
+        }
+        //add end and empty, while as empty maybe have been added.
+        terminals.add(Terminal.Empty);
+        terminals.add(Terminal.End);
+    }
+
     public void geneFirst() {
         //all terminals's first = {terminal}
         for(Terminal t: terminals) {
@@ -240,7 +286,7 @@ public class LL {
                         X.add(Terminal.Empty);
                     }
                     //right part which is Y1Y2Y3...
-                    System.out.println(production);
+//                    System.out.println(production);
 //                    System.out.println("production.getright\t" + production.getRight());
                     stringFirstMap.put(production.getRight(),X);
                     //left part which is X
@@ -257,7 +303,7 @@ public class LL {
                 firsts.add(entry.getValue());
         }
         for(Map.Entry<String, First> entry: stringFirstMap.entrySet()) {
-            System.out.println("key:\t" + entry.getKey() + "\tvalue:\t" + entry.getValue().getLeft());
+//            System.out.println("key:\t" + entry.getKey() + "\tvalue:\t" + entry.getValue().getLeft());
             firsts.add(entry.getValue());
         }
     }
@@ -329,6 +375,7 @@ public class LL {
         Follow follow_beginSymbol = new Follow(beginSymbol, Terminal.End);
         followMap.put(beginSymbol,follow_beginSymbol);
         for(NonTerminal nonTerminal:nonTerminals) {
+            if(nonTerminal.equals(beginSymbol)) continue;
             followMap.put(nonTerminal, new Follow(nonTerminal));
         }
 
@@ -624,6 +671,19 @@ public class LL {
         }
     }
 
+    void showBeginSymbol() {
+        System.out.println("begin symbol:" + beginSymbol.toString());
+    }
+    void showFollow() {
+        System.out.println("follow are as followed.");
+        for(Follow follow:follows) {
+            System.out.print(follow.getLeft() + "\t=\t");
+            for(Terminal t:follow.getRight()) {
+                System.out.print(t.toString() + " ");
+            }
+            System.out.println();
+        }
+    }
     void showSelect() {
         System.out.println("select are as followed.");
         for(Select select:selects) {
@@ -633,6 +693,27 @@ public class LL {
                 System.out.print(t.toString() + " ");
             }
             System.out.println();
+        }
+    }
+
+    void showTerminal() {
+        System.out.println("there are terminals:");
+        for(Terminal t:terminals) {
+            System.out.println(t.toString());
+        }
+    }
+
+    void showNonTerminal() {
+        System.out.println("there are non-termianls:");
+        for(NonTerminal nt:nonTerminals) {
+            System.out.println(nt.toString());
+        }
+    }
+
+    void showProduction() {
+        System.out.println("there are productions.");
+        for(Production production:productions) {
+            System.out.println(production);
         }
     }
     public static void main(String[] args) {
@@ -665,58 +746,61 @@ public class LL {
         */
         LL ll = new LL();
         String input = "aabd";
-
-
-        //1. init nonTerminals, terminals, productions
-        //All nonTerminals
-        NonTerminal S = new NonTerminal('S');
-        NonTerminal A = new NonTerminal('A');
-        NonTerminal B = new NonTerminal('B');
-        //add to non-terminals
-        ll.nonTerminals.add(S);
-        ll.nonTerminals.add(A);
-        ll.nonTerminals.add(B);
-
-//        ll.nonTerminals.add(NonTerminal.Begin);
-
-        //All Terminal
-        Terminal a = new Terminal('a');
-        Terminal b = new Terminal('b');
-        Terminal c = new Terminal('c');
-        Terminal d = new Terminal('d');
-        //add to terminals
-        ll.terminals.add(a);
-        ll.terminals.add(b);
-        ll.terminals.add(c);
-        ll.terminals.add(d);
-        ll.terminals.add(Terminal.End);
-        ll.terminals.add(Terminal.Empty);
-
-        //All Productions
-        Production SAaS = new Production(S,"AaS", 1);
-        Production SBbS = new Production(S, "BbS", 2);
-        Production Aa = new Production(A, "a", 3);
-        Production B_ = new Production(B, "$", 4);
-        Production Bc = new Production(B, "c", 5);
-        Production Sd = new Production(S, "d", 6);
-
-//        Production S_S = new Production(NonTerminal.Begin,S.toString(),7);
-//        Production S_A = new Production(NonTerminal.Begin,A.toString(),8);
-//        Production S_B = new Production(NonTerminal.Begin,B.toString(),9);
-
-
-        //add to productions
-        ll.productions.add(SAaS);
-        ll.productions.add(SBbS);
-        ll.productions.add(Aa);
-        ll.productions.add(B_);
-        ll.productions.add(Bc);
-        ll.productions.add(Sd);
+        String grammar = "S AaS\nS BbS\nS d\nA a\nB $\nB c";
+//
+//        //1. init nonTerminals, terminals, productions
+//        //All nonTerminals
+//        NonTerminal S = new NonTerminal('S');
+//        NonTerminal A = new NonTerminal('A');
+//        NonTerminal B = new NonTerminal('B');
+//        //add to non-terminals
+//        ll.nonTerminals.add(S);
+//        ll.nonTerminals.add(A);
+//        ll.nonTerminals.add(B);
+//
+////        ll.nonTerminals.add(NonTerminal.Begin);
+//
+//        //All Terminal
+//        Terminal a = new Terminal('a');
+//        Terminal b = new Terminal('b');
+//        Terminal c = new Terminal('c');
+//        Terminal d = new Terminal('d');
+//        //add to terminals
+//        ll.terminals.add(a);
+//        ll.terminals.add(b);
+//        ll.terminals.add(c);
+//        ll.terminals.add(d);
+//        ll.terminals.add(Terminal.End);
+//        ll.terminals.add(Terminal.Empty);
+//
+//        //All Productions
+//        Production SAaS = new Production(S,"AaS", 1);
+//        Production SBbS = new Production(S, "BbS", 2);
+//        Production Aa = new Production(A, "a", 3);
+//        Production B_ = new Production(B, "$", 4);
+//        Production Bc = new Production(B, "c", 5);
+//        Production Sd = new Production(S, "d", 6);
+//
+////        Production S_S = new Production(NonTerminal.Begin,S.toString(),7);
+////        Production S_A = new Production(NonTerminal.Begin,A.toString(),8);
+////        Production S_B = new Production(NonTerminal.Begin,B.toString(),9);
+//
+//
+//        //add to productions
+//        ll.productions.add(SAaS);
+//        ll.productions.add(SBbS);
+//        ll.productions.add(Aa);
+//        ll.productions.add(B_);
+//        ll.productions.add(Bc);
+//        ll.productions.add(Sd);
 
 //        ll.productions.add(S_A);
 //        ll.productions.add(S_B);
 //        ll.productions.add(S_S);
-
+        ll.geneProduction(grammar);
+        ll.showTerminal();
+        ll.showNonTerminal();
+        ll.showProduction();
         //2. we have firsts, follows
 //        First first_AaSa = new First("AaS");
 //        first_AaSa.add(a);
@@ -741,7 +825,7 @@ public class LL {
         ll.geneFirst();
         ll.showFirst();
         ll.geneFollow();
-
+        ll.showFollow();
 //        Follow follow_S = new Follow(S, Terminal.End);
 //        Follow follow_A = new Follow(A, a);
 //        Follow follow_B = new Follow(B, b);
@@ -793,6 +877,7 @@ public class LL {
         ll.geneAnalysisTable();
         ll.showAnalysisTable(10);
 
+        ll.showBeginSymbol();
         //5.adjust the result
         System.out.println(ll.isLegal(input));
     }
