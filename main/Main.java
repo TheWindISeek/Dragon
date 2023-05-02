@@ -3,6 +3,7 @@ package main;
 import java.io.*;
 import java.util.Iterator;
 import java.util.Map;
+import java.util.Scanner;
 
 import inter.Set;
 import lexer.*;
@@ -61,7 +62,27 @@ public class Main {
 
     public static void lab2() {
         LL ll = new LL();
-        ll.program("a*a+a", "E TQ\nQ +TQ\nQ $\nT FW\nW *FW\nW $\nF (E)\nF a");
+        String input;
+        StringBuffer grammar = new StringBuffer();
+        String line;
+        Scanner scanner = new Scanner(System.in);
+
+        System.out.println("please input the string you want to analysis.\n");
+        input = scanner.next();
+        scanner.nextLine();//skip \n
+        System.out.println("please input the grammar.\n" +
+                "please use $ to replace sigma, end with #. Be carefully! current terminals and non-terminals only accept char, which means S' is illegal.\n" +
+                "the standard grammar format is Non-Terminal{1}\\s[Terminal Non-Terminal]{1,}\n" +
+                "E TQ\n");
+        while (scanner.hasNext()) {
+            line = scanner.nextLine();
+            if("#".equals(line.trim())) break;
+            if("\n".equals(line.trim())) break;
+            grammar.append(line + "\n");
+        }
+        System.out.println("input string:\n" + input + "\ngrammar:\n" + grammar.toString());
+        ll.program(input,grammar.toString());
+//        ll.program("a*a+a", "E TQ\nQ +TQ\nQ $\nT FW\nW *FW\nW $\nF (E)\nF a");
     }
     public static void main(String[] args) throws IOException {
         System.out.println("result of lab1");

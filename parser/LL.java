@@ -4,6 +4,7 @@ import java.util.*;
 import java.util.stream.Stream;
 
 /**
+ * @FileEncoding UTF-8
  * @author JeffreySharp
  * @Description
  * we assume an example's grammer of LL(1) as followed.
@@ -120,12 +121,12 @@ public class LL {
     Map<Integer, Production> analysisTable = new HashMap<>();
     //begin analysis symbol (non-terminal)
     NonTerminal beginSymbol = NonTerminal.Begin;
-
+    //symbol -> first; Given Terminal or Nonterminal
     Map<Symbol, First> firstMap = new HashMap<>();
+    //Nonterminal -> Follow; whileas only Nonterminal have Follow set...?
     Map<NonTerminal, Follow> followMap = new HashMap<>();
+    //the right part of production -> First. Given right part of prodution
     Map<String, First> stringFirstMap = new HashMap<>();
-
-
 
 
     // transform two indexes to one index
@@ -140,6 +141,7 @@ public class LL {
         return nonTerminal.getIntValue() << 8 + (int)c;
     }
 
+    //when i don't have followMap and firstMap, this function will be used for mapping c to symbol
     Symbol getSymbols(char c) {
         for (Terminal terminal: terminals) {
             if(terminal.getValue() == c) {
@@ -210,6 +212,9 @@ public class LL {
         terminals.add(Terminal.End);
     }
 
+    /**
+     * gene first set from productions
+     */
     public void geneFirst() {
         //all terminals's first = {terminal}
         for(Terminal t: terminals) {
@@ -312,6 +317,9 @@ public class LL {
         }
     }
 
+    /**
+     * abused. for the begin symbols.
+     * */
     public NonTerminal getBeginSymbol() {
         //根据现有的产生式 找到文法的开始符号
         //入度为0的点 但是左边是它自己的话 不应该算入度
@@ -383,34 +391,6 @@ public class LL {
 
     /**
      * generate follow set from first set
-     *      *        First first_AaSa = new First("AaS");
-     *      *         first_AaSa.Add(a);
-     *      *         First first_BbS = new First("BbS");
-     *      *         first_BbS.Add(c);
-     *      *         first_BbS.Add(b);
-     *      *         First first_d = new First("d");
-     *      *         first_d.Add(d);
-     *      *         First first_a = new First("a");
-     *      *         first_a.Add(a);
-     *      *         First first_sigma = new First("$");
-     *      *         first_sigma.Add(Terminal.Empty);
-     *      *         First first_c = new First("c");
-     *      *         first_c.Add(c);
-     *      *         //add to firsts
-     *      *         ll.firsts.add(first_AaSa);
-     *      *         ll.firsts.add(first_BbS);
-     *      *         ll.firsts.add(first_d);
-     *      *         ll.firsts.add(first_a);
-     *      *         ll.firsts.add(first_c);
-     *      *         ll.first.add(first_sigma);
-     *      *
-     *      *         Follow follow_S = new Follow(S, Terminal.End);
-     *      *         Follow follow_A = new Follow(A, a);
-     *      *         Follow follow_B = new Follow(B, b);
-     *      *         //add to follows
-     *      *         ll.follows.add(follow_S);
-     *      *         ll.follows.add(follow_A);
-     *      *         ll.follows.add(follow_B);
      */
     public void geneFollow() {
 //        beginSymbol = getBeginSymbol();
@@ -443,54 +423,6 @@ public class LL {
     }
     /**
      * generate selects set from first set and follow set
-     *        First first_AaSa = new First("AaS");
-     *         first_AaSa.Add(a);
-     *         First first_BbS = new First("BbS");
-     *         first_BbS.Add(c);
-     *         first_BbS.Add(b);
-     *         First first_d = new First("d");
-     *         first_d.Add(d);
-     *         First first_a = new First("a");
-     *         first_a.Add(a);
-     *         First first_sigma = new First("$");
-     *         first_sigma.Add(Terminal.Empty);
-     *         First first_c = new First("c");
-     *         first_c.Add(c);
-     *         //add to firsts
-     *         ll.firsts.add(first_AaSa);
-     *         ll.firsts.add(first_BbS);
-     *         ll.firsts.add(first_d);
-     *         ll.firsts.add(first_a);
-     *         ll.firsts.add(first_c);
-     *
-     *         Follow follow_S = new Follow(S, Terminal.End);
-     *         Follow follow_A = new Follow(A, a);
-     *         Follow follow_B = new Follow(B, b);
-     *         //add to follows
-     *         ll.follows.add(follow_S);
-     *         ll.follows.add(follow_A);
-     *         ll.follows.add(follow_B);
-     *
-     *         Select select_SAaS = new Select(SAaS);
-     *         select_SAaS.Add(a);
-     *         Select select_SBbS = new Select(SBbS);
-     *         select_SBbS.Add(c);
-     *         select_SBbS.Add(b);
-     *         Select select_Sd = new Select(Sd);
-     *         select_Sd.Add(d);
-     *         Select select_Aa = new Select(Aa);
-     *         select_Aa.Add(a);
-     *         Select select_B_ = new Select(B_);
-     *         select_B_.Add(b);
-     *         Select select_Bc = new Select(Bc);
-     *         select_Bc.Add(c);
-     *         //add to selects
-     *         ll.selects.add(select_SAaS);
-     *         ll.selects.add(select_SBbS);
-     *         ll.selects.add(select_Sd);
-     *         ll.selects.add(select_Aa);
-     *         ll.selects.add(select_B_);
-     *         ll.selects.add(select_Bc);
      */
     public void geneSelects() {
         for (Production production: productions) {
@@ -527,43 +459,6 @@ public class LL {
     /**
      * from select set
      * generate analysis table
-     *
-     *         Integer integer_Sa = ll.transDim(S, a);
-     *         Integer integer_Sb = ll.transDim(S, b);
-     *         Integer integer_Sc = ll.transDim(S, c);
-     *         Integer integer_Sd = ll.transDim(S, d);
-     *         Integer integer_Aa = ll.transDim(A, a);
-     *         Integer integer_Bb = ll.transDim(B, b);
-     *         Integer integer_Bc = ll.transDim(B, c);
-     *
-     *         ll.analysisTable.put(integer_Sa, SAaS);
-     *         ll.analysisTable.put(integer_Sb, SBbS);
-     *         ll.analysisTable.put(integer_Sc, SBbS);
-     *         ll.analysisTable.put(integer_Sd, Sd);
-     *         ll.analysisTable.put(integer_Aa, Aa);
-     *         ll.analysisTable.put(integer_Bb, B_);
-     *         ll.analysisTable.put(integer_Bc, Bc);
-     *
-     *         Select select_SAaS = new Select(SAaS);
-     *         select_SAaS.Add(a);
-     *         Select select_SBbS = new Select(SBbS);
-     *         select_SBbS.Add(c);
-     *         select_SBbS.Add(b);
-     *         Select select_Sd = new Select(Sd);
-     *         select_Sd.Add(d);
-     *         Select select_Aa = new Select(Aa);
-     *         select_Aa.Add(a);
-     *         Select select_B_ = new Select(B_);
-     *         select_B_.Add(b);
-     *         Select select_Bc = new Select(Bc);
-     *         select_Bc.Add(c);
-     *         //add to selects
-     *         ll.selects.add(select_SAaS);
-     *         ll.selects.add(select_SBbS);
-     *         ll.selects.add(select_Sd);
-     *         ll.selects.add(select_Aa);
-     *         ll.selects.add(select_B_);
-     *         ll.selects.add(select_Bc);
      */
     public void geneAnalysisTable() {
         for (Select s: selects) {
@@ -575,7 +470,6 @@ public class LL {
             NonTerminal nonTerminal = left.getLeft();
 
             for (Terminal t :right) {
-//                System.out.println(nonTerminal.getValue() + "\t......\t"+t.getValue() + "////" + left);
                 this.analysisTable.put(transDim(nonTerminal, t), left);
             }
         }
@@ -639,6 +533,8 @@ public class LL {
         }
         return true;
     }
+
+    //below function are used for show intermediate results
 
     /**
      * show the analysis table use the format as follow.
@@ -735,186 +631,46 @@ public class LL {
     }
 
     public void program(String input, String grammar) {
+        //1.generate production from grammar
         this.geneProduction(grammar);
         this.showTerminal();
         this.showNonTerminal();
         this.showProduction();
+        //2.generate First set from production
         this.geneFirst();
         this.showFirst();
+        //3.generate Follow set from First and production
         this.geneFollow();
         this.showFollow();
+        //4.generate Select set from First, Follow and production
         this.geneSelects();
         this.showSelect();
+        //5.generate analysis table from select set
         this.geneAnalysisTable();
         this.showAnalysisTable(10);
         this.showBeginSymbol();
+        //6.adjust the input string's legal
         System.out.println(this.isLegal(input));
     }
     public static void main(String[] args) {
-        /*
-        Terminal terminal = new Terminal('a');
-        Terminal terminal1 = new Terminal('a');
-        System.out.println(terminal1 == terminal);
-        System.out.println(terminal1.equals(terminal));
-        Set<Terminal> set = new HashSet<>();
-        Map<Character, Terminal> map = new HashMap<Character,Terminal>();
-        map.put('a', terminal);
-        System.out.println(map.get('a').equals(terminal1));
-
-        set.add(terminal);
-        System.out.println(set.contains(terminal1));
-
-        NonTerminal nonTerminal = new NonTerminal('S');
-        Production production = new Production(nonTerminal,"as",1);
-        System.out.println(production.getLeft() == nonTerminal);
-        System.out.println(production.getLeft().equals(nonTerminal));
-
-        First first = new First("S");
-        first.Add(terminal);
-        System.out.println(first.Contain(terminal));
-        System.out.println(first.Contain(terminal1));
-
-        Select select = new Select(production);
-        Set<Select> selects = new HashSet<>();
-        selects.add(select);
-        */
         LL ll = new LL();
         String input = "a*a+a";
 //        String grammar = "S AaS\nS BbS\nS d\nA a\nB $\nB c";
         String grammar = "E TQ\nQ +TQ\nQ $\nT FW\nW *FW\nW $\nF (E)\nF a";
-
-//
-//        //1. init nonTerminals, terminals, productions
-//        //All nonTerminals
-//        NonTerminal S = new NonTerminal('S');
-//        NonTerminal A = new NonTerminal('A');
-//        NonTerminal B = new NonTerminal('B');
-//        //add to non-terminals
-//        ll.nonTerminals.add(S);
-//        ll.nonTerminals.add(A);
-//        ll.nonTerminals.add(B);
-//
-////        ll.nonTerminals.add(NonTerminal.Begin);
-//
-//        //All Terminal
-//        Terminal a = new Terminal('a');
-//        Terminal b = new Terminal('b');
-//        Terminal c = new Terminal('c');
-//        Terminal d = new Terminal('d');
-//        //add to terminals
-//        ll.terminals.add(a);
-//        ll.terminals.add(b);
-//        ll.terminals.add(c);
-//        ll.terminals.add(d);
-//        ll.terminals.add(Terminal.End);
-//        ll.terminals.add(Terminal.Empty);
-//
-//        //All Productions
-//        Production SAaS = new Production(S,"AaS", 1);
-//        Production SBbS = new Production(S, "BbS", 2);
-//        Production Aa = new Production(A, "a", 3);
-//        Production B_ = new Production(B, "$", 4);
-//        Production Bc = new Production(B, "c", 5);
-//        Production Sd = new Production(S, "d", 6);
-//
-////        Production S_S = new Production(NonTerminal.Begin,S.toString(),7);
-////        Production S_A = new Production(NonTerminal.Begin,A.toString(),8);
-////        Production S_B = new Production(NonTerminal.Begin,B.toString(),9);
-//
-//
-//        //add to productions
-//        ll.productions.add(SAaS);
-//        ll.productions.add(SBbS);
-//        ll.productions.add(Aa);
-//        ll.productions.add(B_);
-//        ll.productions.add(Bc);
-//        ll.productions.add(Sd);
-
-//        ll.productions.add(S_A);
-//        ll.productions.add(S_B);
-//        ll.productions.add(S_S);
         ll.geneProduction(grammar);
         ll.showTerminal();
         ll.showNonTerminal();
         ll.showProduction();
-        //2. we have firsts, follows
-//        First first_AaSa = new First("AaS");
-//        first_AaSa.add(a);
-//        First first_BbS = new First("BbS");
-//        first_BbS.add(c);
-//        first_BbS.add(b);
-//        First first_d = new First("d");
-//        first_d.add(d);
-//        First first_a = new First("a");
-//        first_a.add(a);
-//        First first_sigma = new First("$");
-//        first_sigma.add(Terminal.Empty);
-//        First first_c = new First("c");
-//        first_c.add(c);
-//        //add to firsts
-//        ll.firsts.add(first_AaSa);
-//        ll.firsts.add(first_BbS);
-//        ll.firsts.add(first_d);
-//        ll.firsts.add(first_a);
-//        ll.firsts.add(first_c);
-//        ll.firsts.add(first_sigma);
         ll.geneFirst();
         ll.showFirst();
         ll.geneFollow();
         ll.showFollow();
-//        Follow follow_S = new Follow(S, Terminal.End);
-//        Follow follow_A = new Follow(A, a);
-//        Follow follow_B = new Follow(B, b);
-//        //add to follows
-//        ll.follows.add(follow_S);
-//        ll.follows.add(follow_A);
-//        ll.follows.add(follow_B);
-
-        //3.we even have Select
-//        Select select_SAaS = new Select(SAaS);
-//        select_SAaS.add(a);
-//        Select select_SBbS = new Select(SBbS);
-//        select_SBbS.add(c);
-//        select_SBbS.add(b);
-//        Select select_Sd = new Select(Sd);
-//        select_Sd.add(d);
-//        Select select_Aa = new Select(Aa);
-//        select_Aa.add(a);
-//        Select select_B_ = new Select(B_);
-//        select_B_.add(b);
-//        Select select_Bc = new Select(Bc);
-//        select_Bc.add(c);
-//        //add to selects
-//        ll.selects.add(select_SAaS);
-//        ll.selects.add(select_SBbS);
-//        ll.selects.add(select_Sd);
-//        ll.selects.add(select_Aa);
-//        ll.selects.add(select_B_);
-//        ll.selects.add(select_Bc);
         ll.geneSelects();
         ll.showSelect();
-
-        //4.analysis table!!!
-//        Integer integer_Sa = ll.transDim(S, a);
-//        Integer integer_Sb = ll.transDim(S, b);
-//        Integer integer_Sc = ll.transDim(S, c);
-//        Integer integer_Sd = ll.transDim(S, d);
-//        Integer integer_Aa = ll.transDim(A, a);
-//        Integer integer_Bb = ll.transDim(B, b);
-//        Integer integer_Bc = ll.transDim(B, c);
-//
-//        ll.analysisTable.put(integer_Sa, SAaS);
-//        ll.analysisTable.put(integer_Sb, SBbS);
-//        ll.analysisTable.put(integer_Sc, SBbS);
-//        ll.analysisTable.put(integer_Sd, Sd);
-//        ll.analysisTable.put(integer_Aa, Aa);
-//        ll.analysisTable.put(integer_Bb, B_);
-//        ll.analysisTable.put(integer_Bc, Bc);
         ll.geneAnalysisTable();
         ll.showAnalysisTable(10);
 
         ll.showBeginSymbol();
-        //5.adjust the result
         System.out.println(ll.isLegal(input));
     }
 }
