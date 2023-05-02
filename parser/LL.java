@@ -163,7 +163,13 @@ public class LL {
             to.add(item);
         }
     }
-
+    //copy set from "from" to "to", use isChanged to adjust whether set is altered or not.
+    private <T>boolean copySet(Set<T> to, Set<T> from, boolean isChanged) {
+        for (T item :from) {
+           isChanged |= to.add(item);
+        }
+        return isChanged;
+    }
     /**
      * generate terminals, nontermianls, productions using grammar
      * which is
@@ -250,13 +256,18 @@ public class LL {
             }
         }
 
-        for(int i = 0; i < 2; ++i) {
+        //adjust whether set is changed or not.
+        boolean isChanged = true;
+        while (isChanged){
+            isChanged = false;
             for(Production production: productions) {
                 //if X -> Y1 Y2 Y3 ....
                 int index = 0;
                 Symbol symbol = getSymbols(production.getRight().charAt(index));
                 if(symbol instanceof NonTerminal) {
-                    First X = new First(production.getRight());
+                    First X = stringFirstMap.get(production.getRight());
+                    if(X == null)
+                        X = new First(production.getRight());
                     First Y = firstMap.get((NonTerminal) symbol);
                     boolean end = false;
                     for(Terminal t:Y.getRight()) {
@@ -264,7 +275,7 @@ public class LL {
                             end = true;
                             continue;
                         }
-                        X.add(t);
+                        isChanged |= X.add(t);
                     }
 
                     while (end) {
@@ -275,7 +286,7 @@ public class LL {
                         symbol = getSymbols(production.getRight().charAt(++index));
                         //the terminal should be included in the first
                         if(symbol instanceof Terminal) {
-                            X.add((Terminal) symbol);
+                           isChanged |= X.add((Terminal) symbol);
                             end = false;
                             break;
                         }
@@ -286,13 +297,13 @@ public class LL {
                                 end = true;
                                 continue;
                             }
-                            X.add(t);
+                            isChanged |= X.add(t);
                         }
                     }
 
                     //all Y have sigma
                     if(end) {
-                        X.add(Terminal.Empty);
+                       isChanged |= X.add(Terminal.Empty);
                     }
                     //right part which is Y1Y2Y3...
 //                    System.out.println(production);
@@ -301,7 +312,7 @@ public class LL {
                     //left part which is X
                     First first = firstMap.get(production.getLeft());
 //                    System.out.println("production.getleft\t" + first.getLeft());
-                    copySet(first.getRight(),X.getRight());
+                    copySet(first.getRight(),X.getRight(), isChanged);
                 }
             }
         }
@@ -355,7 +366,7 @@ public class LL {
      * @param index from index to length
      * @param right production body
      */
-    private void followFromIndex(NonTerminal left, int index, String right) {
+    private boolean followFromIndex(NonTerminal left, int index, String right, boolean isChanged) {
         Symbol symbol = getSymbols(right.charAt(index++));
         //find the first non-terminal of production
         while (symbol instanceof Terminal && index < right.length()) {
@@ -376,17 +387,19 @@ public class LL {
                     empty = true;
                     continue;
                 }
-                follow.add(t);
+                isChanged |= follow.add(t);
             }
 
             //if sigma belong to beta
             if(empty) {
                 //follow(B) += follow(A)
                 for(Terminal t: followMap.get(left).getRight()) {
-                    follow.add(t);
+                    isChanged |= follow.add(t);
                 }
             }
         }
+
+        return isChanged;
     }
 
     /**
@@ -403,14 +416,16 @@ public class LL {
             followMap.put(nonTerminal, new Follow(nonTerminal));
         }
 
+        boolean isChanged = true;
         //the first production's left is begin!
-        for(int i = 0; i < 2; ++i) {
+        while (isChanged){
+            isChanged = false;
             for(Production production:productions) {
                 NonTerminal left = production.getLeft();
                 String right = production.getRight();
                 int index = 0;
                 while (index < right.length()) {
-                    followFromIndex(left,index,right);
+                    isChanged |= followFromIndex(left,index,right, isChanged);
                     index++;
                 }
             }
