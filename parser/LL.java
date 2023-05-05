@@ -669,9 +669,10 @@ public class LL {
     }
     public static void main(String[] args) {
         LL ll = new LL();
-        String input = "a*a+a";
-//        String grammar = "S AaS\nS BbS\nS d\nA a\nB $\nB c";
-        String grammar = "E TQ\nQ +TQ\nQ $\nT FW\nW *FW\nW $\nF (E)\nF a";
+        String input = "aabdaaaaaad";
+//        String input = "a*a+a";
+        String grammar = "S AaS\nS BbS\nS d\nA a\nB $\nB c";
+//        String grammar = "E TQ\nQ +TQ\nQ $\nT FW\nW *FW\nW $\nF (E)\nF a";
         ll.geneProduction(grammar);
         ll.showTerminal();
         ll.showNonTerminal();

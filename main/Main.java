@@ -72,6 +72,7 @@ public class Main {
         scanner.nextLine();//skip \n
         System.out.println("please input the grammar.\n" +
                 "please use $ to replace sigma, end with #. Be carefully! current terminals and non-terminals only accept char, which means S' is illegal.\n" +
+                "The begin symbol is the first NonTerminal, which is the left part of first production you typed.\n" +
                 "the standard grammar format is Non-Terminal{1}\\s[Terminal Non-Terminal]{1,}\n" +
                 "E TQ\n");
         while (scanner.hasNext()) {
