@@ -1,0 +1,59 @@
+package parser;
+
+/**
+ * @author JeffreySharp
+ * @apiNote Item类 表示LR分析中的每一个项目
+ */
+public class Item {
+
+    //哪个产生式
+    private Production production;
+    //下一个要被分析的符号
+    private Symbol nextSymbol;
+    //暂时未使用
+    private Symbol lookahead;
+
+    public Item(Production production, Symbol nextSymbol, Symbol lookahead) {
+        this.production = production;
+        this.nextSymbol = nextSymbol;
+        this.lookahead = lookahead;
+    }
+
+    public Item(Production production, Symbol nextSymbol) {
+        this.production = production;
+        this.nextSymbol = nextSymbol;
+    }
+
+    @Override
+    public String toString() {
+        return "Item{" +
+                "production=" + production +
+                ", nextSymbol=" + nextSymbol +
+                ", lookahead=" + lookahead +
+                '}';
+    }
+
+    public void setProduction(Production production) {
+        this.production = production;
+    }
+
+    public void setNextSymbol(Symbol nextSymbol) {
+        this.nextSymbol = nextSymbol;
+    }
+
+    public void setLookahead(Symbol lookahead) {
+        this.lookahead = lookahead;
+    }
+
+    public Production getProduction() {
+        return production;
+    }
+
+    public Symbol getNextSymbol() {
+        return nextSymbol;
+    }
+
+    public Symbol getLookahead() {
+        return lookahead;
+    }
+}
