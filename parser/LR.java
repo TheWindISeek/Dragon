@@ -133,7 +133,11 @@ import java.util.*;
  * List<set<Item> > states;//
  */
 public class LR {
-    Map<Integer, Set<Item> > states = new HashMap<>();//状态的编号 -> 状态编号里面的项目
+    Map<Integer,  Set<Item> > states = new HashMap<>();//状态的编号 -> 状态编号里面的项目
+    Map<Integer, Set<Item> > setMap = new HashMap<>();//set hash code -> 对应的集合
+    Map<Integer, Integer> numMap = new HashMap<>();//set hash code -> 状态的编号
+    List<Set<Item> > setItemList = new ArrayList<>();//这里存放所有的set<Item>
+    Map<Integer, Item> itemMap = new HashMap<>();//用于存放所有的item 便于之后的管理
     NonTerminal beginSymbol = NonTerminal.Begin;
     Map<Integer,Production> productions = new HashMap<>();
     //所有的终结符
@@ -230,14 +234,39 @@ public class LR {
     }
 
     /**
+     * 根据产生式生成所有的items 方便后续set的判断
+     */
+    private void geneItems() {
+        int index, sz, hashCode;
+        Item item;
+        for (Production production: productions.values()) {
+            index = 0;
+            sz = production.getRight().length();
+            while (index < sz) {
+                hashCode = Objects.hash(production, getSymbols(production.getRight().charAt(index)));
+                item = new Item(production, getSymbols(production.getRight().charAt(index)));
+                itemMap.put(hashCode, item);
+                index++;
+                System.out.printf("%-10d\t %s \n",hashCode, item.toString());
+            }
+            hashCode = Objects.hash(production, Symbol.RIGHTMOST);
+            item = new Item(production, Symbol.RIGHTMOST);
+            itemMap.put(hashCode, item);
+            System.out.printf("%-10d\t %s \n",hashCode, item.toString());
+        }
+    }
+
+    /**
      * 求状态I的闭包
      * @param I 状态I 其中包含项目
      * @return closure(I)
      */
-    public Set<Item> closure(Set<Item> I) {
+    public Set<Item> Closure(Set<Item> I) {
         boolean isChanged = true;
+        List<Item> list = new ArrayList<>();
         while (isChanged) {
             isChanged = false;
+            list.clear();
             for(Item item: I) {
                 //跳过 下一个符号是终结符号的 因为这样肯定不需要求解
                 if(item.getNextSymbol() instanceof Terminal) continue;
@@ -245,13 +274,39 @@ public class LR {
                 for (Production production: productions.values()) {
                     if(nextSymbol.equals(production.getLeft())) {
                         //新建一个项目 加入到set中; x->y .y
-                        Item i = new Item(production, getSymbols(production.getRight().charAt(0)));
-                        isChanged |= I.add(i);//判断是否发生了改变
+                        int hashCode = Objects.hash(production, getSymbols(production.getRight().charAt(0)));
+                        //Item i = new Item(production, getSymbols(production.getRight().charAt(0)));
+                        list.add(itemMap.get(hashCode));
                     }
                 }
             }
+            for (Item item:list) {
+                isChanged |= I.add(item);//判断是否发生了改变
+            }
         }
         return I;
+    }
+
+    /**
+     * goto(I,X)
+     * @param I 项目集合
+     * @param X 文法符号 终结符号或者非终结符号
+     * @return 将圆点移动到所有项的符号X之后
+     */
+    public Set<Item> Goto(Set<Item> I, Symbol X) {
+        Set<Item> J = new HashSet<>();
+        if(X.equals(Symbol.RIGHTMOST)) return J;//如果都扫描到最右边了 那么很显然走不下去了
+        for(Item item: I) {
+            //如果可以跳到下一个状态
+            if(item.getNextSymbol().equals(X)) {
+                String s = item.getProduction().getRight();
+                int index = 1 + s.indexOf(X.getValue());
+                Symbol c = index == s.length() ? Symbol.RIGHTMOST : getSymbols(s.charAt(index));
+                int hash = Objects.hash(item.getProduction(), c);
+                J.add(itemMap.get(hash));
+            }
+        }
+        return Closure(J);
     }
 
     /**
@@ -267,16 +322,41 @@ public class LR {
             );
         }
     }
+
     /**
      * 构造LR0分析器的分析算法
      */
     public void construct() {
-        Set<Item> tmp = states.get(beginState);
-        int index = 1;
-        tmp = closure(tmp);
-        print(tmp);
-    }
+        //1.先生成所有的项目 便于后续的set操作
+        geneItems();
+        //2.初始化T为最开始状态的闭包
+        boolean isChanged = true;
+        int index = 1;//状态的编号
+        List<Set<Item> > itemList = new ArrayList<>();
+        List<Edge> edgeList = new ArrayList<>();
+        Set<Item> tmp = Closure(states.get(beginState));
+        Set<Edge> edgeSet = new HashSet<>();// E <= empty
 
+
+        states.put(index++, tmp);// T <= {closure(S' -> S)}
+        setMap.put(tmp.hashCode(), tmp);
+
+        while (isChanged) {//这里得好好想想咋实现 如何快速判断两个集合的内容是否一致 并且快速的根据它得到之后的 这个是需要好好思考的
+            isChanged = false;
+            itemList.clear();
+            edgeList.clear();
+            for(Set<Item> I: states.values()) {// for T 中的每一个状态I
+                for(Item item: I) {
+                    Set<Item> J = Goto(I, item.getNextSymbol());
+                    //if(setMap.containsKey(J.hashCode())) continue;//这样还是可能出现死循环的问题
+                    //setMap.put(J.hashCode(), J);
+                    //states.put(index++, J);
+                    itemList.add(J);//这会不会也出现死循环的情况 有可能。。。
+                  //  edgeList.add(new Edge());
+                }
+            }
+        }
+    }
 
     //将state和符号转换成一个int 该int用于tables 去寻找对应的entry
     private int transDim(int state, Symbol symbol) {

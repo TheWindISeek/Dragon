@@ -1,5 +1,7 @@
 package parser;
 
+import java.util.Objects;
+
 /**
  * @author JeffreySharp
  * @apiNote Item类 表示LR分析中的每一个项目
@@ -22,6 +24,19 @@ public class Item {
     public Item(Production production, Symbol nextSymbol) {
         this.production = production;
         this.nextSymbol = nextSymbol;
+    }
+
+    @Override
+    public boolean equals(Object o) {
+        if (this == o) return true;
+        if (o == null || getClass() != o.getClass()) return false;
+        Item item = (Item) o;
+        return production.equals(item.production) && Objects.equals(nextSymbol, item.nextSymbol) && Objects.equals(lookahead, item.lookahead);
+    }
+
+    @Override
+    public int hashCode() {
+        return Objects.hash(production, nextSymbol, lookahead);
     }
 
     @Override

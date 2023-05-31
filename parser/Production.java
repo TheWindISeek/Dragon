@@ -1,5 +1,7 @@
 package parser;
 
+import java.util.Objects;
+
 public class Production {
     //left part of production
     private NonTerminal left;
@@ -20,6 +22,19 @@ public class Production {
 
     public NonTerminal getLeft() {
         return left;
+    }
+
+    @Override
+    public boolean equals(Object o) {
+        if (this == o) return true;
+        if (o == null || getClass() != o.getClass()) return false;
+        Production that = (Production) o;
+        return num == that.num && left.equals(that.left) && right.equals(that.right);
+    }
+
+    @Override
+    public int hashCode() {
+        return Objects.hash(left, right, num);
     }
 
     public String getRight() {

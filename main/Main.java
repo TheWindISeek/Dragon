@@ -1,11 +1,8 @@
 package main;
 
 import java.io.*;
-import java.util.Iterator;
-import java.util.Map;
-import java.util.Scanner;
+import java.util.*;
 
-import inter.Set;
 import lexer.*;
 import parser.*;
 
@@ -86,9 +83,14 @@ public class Main {
 //        ll.program("a*a+a", "E TQ\nQ +TQ\nQ $\nT FW\nW *FW\nW $\nF (E)\nF a");
     }
     public static void main(String[] args) throws IOException {
-        System.out.println("result of lab1");
-        lab1();
-        System.out.println("result of lab2");
-        lab2();
+//        System.out.println("result of lab1");
+//        lab1();
+//        System.out.println("result of lab2");
+//        lab2();
+        //set的哈希code被定义为 所有元素的hashcode之和
+        Set<Integer> set = new HashSet<>();
+        System.out.println(set.hashCode());
+        set.add(2);
+        System.out.println(set.hashCode());
     }
 }
