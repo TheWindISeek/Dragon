@@ -15,6 +15,15 @@ public class Item {
     //暂时未使用
     private Symbol lookahead;
 
+    private int num;
+
+    public Item(Production production, Symbol nextSymbol, Symbol lookahead, int num) {
+        this.production = production;
+        this.nextSymbol = nextSymbol;
+        this.lookahead = lookahead;
+        this.num = num;
+    }
+
     public Item(Production production, Symbol nextSymbol, Symbol lookahead) {
         this.production = production;
         this.nextSymbol = nextSymbol;
@@ -24,6 +33,12 @@ public class Item {
     public Item(Production production, Symbol nextSymbol) {
         this.production = production;
         this.nextSymbol = nextSymbol;
+    }
+
+    public Item(Production production, Symbol nextSymbol, int num) {
+        this.production = production;
+        this.nextSymbol = nextSymbol;
+        this.num = num;
     }
 
     @Override
@@ -70,5 +85,13 @@ public class Item {
 
     public Symbol getLookahead() {
         return lookahead;
+    }
+
+    public int getNum() {
+        return num;
+    }
+
+    public void setNum(int num) {
+        this.num = num;
     }
 }

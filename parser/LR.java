@@ -128,18 +128,17 @@ import java.util.*;
  * 但是状态栈不为空 他需要压入存在增广文法S' -> .S中的那个状态 可以验证 这样的状态只有一个
  * <p>
  * 所以这个状态是开始的状态 int beginState;//最开始的状态
- *
- *
+ * <p>
+ * <p>
  * List<set<Item> > states;//
  */
 public class LR {
-    Map<Integer,  Set<Item> > states = new HashMap<>();//状态的编号 -> 状态编号里面的项目
-    Map<Integer, Set<Item> > setMap = new HashMap<>();//set hash code -> 对应的集合
-    Map<Integer, Integer> numMap = new HashMap<>();//set hash code -> 状态的编号
-    List<Set<Item> > setItemList = new ArrayList<>();//这里存放所有的set<Item>
+    Map<Integer, Set<Item>> states = new HashMap<>();//状态的编号 -> 状态编号里面的项目
+    List<Set<Item>> setItemList = new ArrayList<>();//这里存放所有的set<Item>
+    List<Edge> edgeList = new ArrayList<>();//这里存放所有的edge
     Map<Integer, Item> itemMap = new HashMap<>();//用于存放所有的item 便于之后的管理
     NonTerminal beginSymbol = NonTerminal.Begin;
-    Map<Integer,Production> productions = new HashMap<>();
+    Map<Integer, Production> productions = new HashMap<>();
     //所有的终结符
     Set<Terminal> terminals = new HashSet<>();
     //所有的非终结符号
@@ -239,7 +238,7 @@ public class LR {
     private void geneItems() {
         int index, sz, hashCode;
         Item item;
-        for (Production production: productions.values()) {
+        for (Production production : productions.values()) {
             index = 0;
             sz = production.getRight().length();
             while (index < sz) {
@@ -247,17 +246,18 @@ public class LR {
                 item = new Item(production, getSymbols(production.getRight().charAt(index)));
                 itemMap.put(hashCode, item);
                 index++;
-                System.out.printf("%-10d\t %s \n",hashCode, item.toString());
+                System.out.printf("%-10d\t %s \n", hashCode, item.toString());
             }
             hashCode = Objects.hash(production, Symbol.RIGHTMOST);
             item = new Item(production, Symbol.RIGHTMOST);
             itemMap.put(hashCode, item);
-            System.out.printf("%-10d\t %s \n",hashCode, item.toString());
+            System.out.printf("%-10d\t %s \n", hashCode, item.toString());
         }
     }
 
     /**
      * 求状态I的闭包
+     *
      * @param I 状态I 其中包含项目
      * @return closure(I)
      */
@@ -267,12 +267,13 @@ public class LR {
         while (isChanged) {
             isChanged = false;
             list.clear();
-            for(Item item: I) {
+            for (Item item : I) {
                 //跳过 下一个符号是终结符号的 因为这样肯定不需要求解
-                if(item.getNextSymbol() instanceof Terminal) continue;
+                if (item.getNextSymbol().equals(Symbol.RIGHTMOST)) continue;
+                if (item.getNextSymbol() instanceof Terminal) continue;
                 NonTerminal nextSymbol = (NonTerminal) item.getNextSymbol();
-                for (Production production: productions.values()) {
-                    if(nextSymbol.equals(production.getLeft())) {
+                for (Production production : productions.values()) {
+                    if (nextSymbol.equals(production.getLeft())) {
                         //新建一个项目 加入到set中; x->y .y
                         int hashCode = Objects.hash(production, getSymbols(production.getRight().charAt(0)));
                         //Item i = new Item(production, getSymbols(production.getRight().charAt(0)));
@@ -280,7 +281,7 @@ public class LR {
                     }
                 }
             }
-            for (Item item:list) {
+            for (Item item : list) {
                 isChanged |= I.add(item);//判断是否发生了改变
             }
         }
@@ -289,16 +290,17 @@ public class LR {
 
     /**
      * goto(I,X)
+     *
      * @param I 项目集合
      * @param X 文法符号 终结符号或者非终结符号
      * @return 将圆点移动到所有项的符号X之后
      */
     public Set<Item> Goto(Set<Item> I, Symbol X) {
         Set<Item> J = new HashSet<>();
-        if(X.equals(Symbol.RIGHTMOST)) return J;//如果都扫描到最右边了 那么很显然走不下去了
-        for(Item item: I) {
+        if (X.equals(Symbol.RIGHTMOST)) return J;//如果都扫描到最右边了 那么很显然走不下去了
+        for (Item item : I) {
             //如果可以跳到下一个状态
-            if(item.getNextSymbol().equals(X)) {
+            if (item.getNextSymbol().equals(X)) {
                 String s = item.getProduction().getRight();
                 int index = 1 + s.indexOf(X.getValue());
                 Symbol c = index == s.length() ? Symbol.RIGHTMOST : getSymbols(s.charAt(index));
@@ -311,15 +313,73 @@ public class LR {
 
     /**
      * 打印状态中的所有项目
+     *
      * @param I 给定的状态
      */
     void print(Set<Item> I) {
-        for(Item item: I) {
-            System.out.printf("%c -> %s \tnext symbol %c\n",
-                    item.getProduction().getLeft().getValue(),
-                    item.getProduction().getRight(),
-                    item.getNextSymbol().getValue()
-            );
+        for (Item item : I) {
+            String s = item.getProduction().getRight();
+            int find = s.indexOf(item.getNextSymbol().getValue());
+            if (find == -1) {
+                System.out.printf("%c -> %5s .\n", item.getProduction().getLeft().getValue(), s);
+            } else {
+                String left = "", right = "";
+                if (find != 0) {
+                    left = s.substring(0, find);
+                }
+                right = s.substring(find);
+                System.out.printf("%c -> %s . %s\n", item.getProduction().getLeft().getValue(), left, right);
+            }
+        }
+    }
+
+    /**
+     * 比较两个集合是否完全相同 注意我调用的是contain方法
+     *
+     * @param x item集合1
+     * @param y item集合2
+     * @return 相同则返回true 否则返回fasle
+     */
+    private boolean isEqual(Set<Item> x, Set<Item> y) {
+        if (x.size() != y.size()) return false;
+
+        for (Item item : x) {
+            if (!y.contains(item))
+                return false;
+        }
+        return true;
+    }
+
+    /**
+     * 判断两条边是否完全相同 相同则返回true 否则返回false 分别比较了from to symbol
+     *
+     * @param x 边x
+     * @param y 边y
+     * @return 是否相同
+     */
+    private boolean isEqual(Edge x, Edge y) {
+        return x.getFrom() == y.getFrom() && x.getTo() == y.getTo() && x.getSymbol() == y.getSymbol();
+    }
+
+    /**
+     * 将从from到to 边上为symbol的边添加到了 全局的边列表和 局部的边列表中
+     * @param from 哪个状态
+     * @param to 到哪个状态
+     * @param symbol 边上值为
+     * @param addEdgeList 局部边列表
+     */
+    private void addEdge(int from, int to, Symbol symbol, List<Edge> addEdgeList) {
+        boolean isEdgeEq = false;
+        Edge e = new Edge(from, to, symbol);
+        for(Edge edge: edgeList) {
+            if(isEqual(e, edge)) {
+                isEdgeEq = true;
+                break;
+            }
+        }
+        if(!isEdgeEq) {
+            edgeList.add(e);
+            addEdgeList.add(e);
         }
     }
 
@@ -327,34 +387,72 @@ public class LR {
      * 构造LR0分析器的分析算法
      */
     public void construct() {
-        //1.先生成所有的项目 便于后续的set操作
-        geneItems();
-        //2.初始化T为最开始状态的闭包
-        boolean isChanged = true;
-        int index = 1;//状态的编号
-        List<Set<Item> > itemList = new ArrayList<>();
-        List<Edge> edgeList = new ArrayList<>();
-        Set<Item> tmp = Closure(states.get(beginState));
-        Set<Edge> edgeSet = new HashSet<>();// E <= empty
+        geneItems();//先生成所有的项目 便于后续的set操作
 
+        boolean isChanged = true, isItemEq;
+        int index = 1;//状态的编号
+
+        Set<Item> tmp = Closure(states.get(beginState));//初始化T为最开始状态的闭包
+        Set<Edge> edgeSet = new HashSet<>();// E <= empty
+        List<Set<Item>> addItemList = new ArrayList<>();
+        List<Edge> addEdgeList = new ArrayList<>();
 
         states.put(index++, tmp);// T <= {closure(S' -> S)}
-        setMap.put(tmp.hashCode(), tmp);
+        setItemList.add(tmp);
 
-        while (isChanged) {//这里得好好想想咋实现 如何快速判断两个集合的内容是否一致 并且快速的根据它得到之后的 这个是需要好好思考的
-            isChanged = false;
-            itemList.clear();
-            edgeList.clear();
-            for(Set<Item> I: states.values()) {// for T 中的每一个状态I
-                for(Item item: I) {
-                    Set<Item> J = Goto(I, item.getNextSymbol());
-                    //if(setMap.containsKey(J.hashCode())) continue;//这样还是可能出现死循环的问题
-                    //setMap.put(J.hashCode(), J);
-                    //states.put(index++, J);
-                    itemList.add(J);//这会不会也出现死循环的情况 有可能。。。
-                  //  edgeList.add(new Edge());
+        //计算DFA
+        while (isChanged) {
+            isChanged = false;//重置
+            addItemList.clear();
+            addEdgeList.clear();
+            for (Map.Entry<Integer, Set<Item>> I : states.entrySet()) {// for T 中的每一个状态I
+                for (Item item : I.getValue()) {
+                    Set<Item> J = Goto(I.getValue(), item.getNextSymbol());
+                    int idx = 0;
+
+                    if (J.size() == 0) continue;
+                    isItemEq = false;
+                    for (Set<Item> items : setItemList) { //看一下状态是不是已经被包含了
+                        if (isEqual(items, J)) {
+                            if (isEqual(I.getValue(), J)) { //自己到自己
+                                addEdge(I.getKey(), I.getKey(), item.getNextSymbol(), addEdgeList);
+                            }
+                            isItemEq = true;
+                            idx = setItemList.indexOf(items) + 1;
+                            break;
+                        }
+                    }
+                    if (!isItemEq) {
+                        setItemList.add(J);
+                        addItemList.add(J);
+                        idx = setItemList.size();
+                    }
+
+                    addEdge(I.getKey(), idx, item.getNextSymbol(), addEdgeList);
                 }
             }
+
+            //将这些新边和新状态添加到之前的内容重
+            for (Set<Item> item : addItemList) {
+                states.put(index++, item);
+                isChanged = true;
+            }
+            isChanged |= edgeSet.addAll(addEdgeList);
+        }
+
+        //打印状态
+        for (Map.Entry<Integer, Set<Item>> items : states.entrySet()) {
+            System.out.printf("这是%d状态\n", items.getKey());
+            print(items.getValue());
+        }
+        //打印边
+        //System.out.println("边数量" + edgeSet.size());
+        for (Edge edge : edgeSet) {
+            System.out.println();
+            print(states.get(edge.getFrom()));
+            System.out.println(edge);
+            print(states.get(edge.getTo()));
+            System.out.println();
         }
     }
 
@@ -390,7 +488,7 @@ public class LR {
             Entry entry = tables.get(dim);
 
             //出错
-            if(entry == null) break;
+            if (entry == null) break;
             switch (entry.getAction()) {
                 case Entry.SHIFT://shift
                     state = entry.getState();

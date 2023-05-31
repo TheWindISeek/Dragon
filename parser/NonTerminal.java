@@ -27,6 +27,7 @@ public class NonTerminal extends Symbol{
     //rewrite equals method
     @Override
     public boolean equals(Object obj) {
+        if(!(obj instanceof NonTerminal)) return false;//如果类型不一样 就直接返回错误
         return this.value == ((NonTerminal)obj).value;
     }
 

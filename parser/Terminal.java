@@ -35,6 +35,7 @@ public class Terminal extends Symbol{
     @Override
     public boolean equals(Object obj) {
         //System.out.println(this.value + " equals " + ((Terminal)obj).value);
+        if(!(obj instanceof Terminal)) return false;//如果都不是Terminal类型了 很明显不相等
         return this.value == ((Terminal)obj).value;
     }
 
