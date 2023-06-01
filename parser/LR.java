@@ -528,7 +528,7 @@ public class LR {
             System.out.printf("%c\t", nonTerminal.getValue());
         }
         System.out.println();
-        int sz = 9, dim;//获取状态总数
+        int sz = states.size(), dim;//获取状态总数
         for (int i = 1; i <= sz; ++i) {
             System.out.printf("%d\t", i);
             for (Terminal terminal : terminals) {
@@ -559,7 +559,8 @@ public class LR {
 
     //将state和符号转换成一个int 该int用于tables 去寻找对应的entry
     private int transDim(int state, Symbol symbol) {
-        return Objects.hash(state, symbol.getValue());
+        return (state << 8) + (int)symbol.getValue();
+        //return Objects.hash(state, symbol.getValue());
     }
 
     /**
@@ -641,8 +642,11 @@ public class LR {
         * */
         LR lr = new LR();
         //默认文法第一个符号为 S 即文法的开始符号
+
         String grammar = "S (L)\nS x\nL S\nL L,S";
         String s = "((x,(x)))";
+        grammar = "E E+T\nE T\nT T*F\nT F\nF (E)\nF v\nF d";
+        s = "v+v*d";
         //1.读入产生式
         //2.构建增广文法
         lr.geneProduction(grammar);
