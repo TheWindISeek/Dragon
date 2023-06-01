@@ -363,21 +363,22 @@ public class LR {
 
     /**
      * 将从from到to 边上为symbol的边添加到了 全局的边列表和 局部的边列表中
-     * @param from 哪个状态
-     * @param to 到哪个状态
-     * @param symbol 边上值为
+     *
+     * @param from        哪个状态
+     * @param to          到哪个状态
+     * @param symbol      边上值为
      * @param addEdgeList 局部边列表
      */
     private void addEdge(int from, int to, Symbol symbol, List<Edge> addEdgeList) {
         boolean isEdgeEq = false;
         Edge e = new Edge(from, to, symbol);
-        for(Edge edge: edgeList) {
-            if(isEqual(e, edge)) {
+        for (Edge edge : edgeList) {
+            if (isEqual(e, edge)) {
                 isEdgeEq = true;
                 break;
             }
         }
-        if(!isEdgeEq) {
+        if (!isEdgeEq) {
             edgeList.add(e);
             addEdgeList.add(e);
         }
@@ -454,11 +455,111 @@ public class LR {
             print(states.get(edge.getTo()));
             System.out.println();
         }
+
+        int dim;
+        //目前我有 edge items
+        //归约动作 REDUCE J
+        for (Map.Entry<Integer, Set<Item>> items : states.entrySet()) {
+            for (Item item : items.getValue()) {
+                if (item.getNextSymbol().equals(Symbol.RIGHTMOST)) { //如果已经到最右边了 可以进行归约了
+                    Production production = item.getProduction();
+                    if (production.getNum() == 0) { // accept
+                        dim = transDim(items.getKey(), Terminal.End);
+                        //System.out.printf("accept %d production: %c->%s dim: %d\n", items.getKey(), production.getLeft().getValue(), production.getRight(), dim);
+                        tables.put(dim, new Entry(production.getNum(), Entry.ACCEPT));
+                    } else { // reduce j
+                        for(Terminal terminal: terminals) { // 这里就是LR0的缺陷 直接把所有的都置为了rj
+                            dim = transDim(items.getKey(), terminal);
+                            //System.out.printf("reduce %d production: %c->%s dim: %d\n", items.getKey(), production.getLeft().getValue(), production.getRight(), dim);
+                            tables.put(dim, new Entry(production.getNum(), Entry.REDUCE));
+                        }
+                    }
+                }
+            }
+        }
+
+        //移入动作 SHIFT J
+        //跳转动作 goto(I,X) = J
+        for (Edge edge : edgeSet) {
+            if (edge.getSymbol() instanceof NonTerminal) {
+                dim = transDim(edge.getFrom(), edge.getSymbol());//    state, non-terminal
+                //System.out.printf("goto %d -> %d using %c dim:%d\n", edge.getFrom(), edge.getTo(), edge.getSymbol().getValue(), dim);
+                tables.put(dim, new Entry(edge.getTo(), Entry.GOTO));//Integer => Entry 遇到的
+            } else {
+                dim = transDim(edge.getFrom(), edge.getSymbol());// state, terminal
+                //System.out.printf("shift %d -> %d using %c dim:%d\n", edge.getFrom(), edge.getTo(), edge.getSymbol().getValue(), dim);
+                tables.put(dim, new Entry(edge.getTo(), Entry.SHIFT));// shift j
+            }
+        }
+
+        printTables();
+    }
+
+    /**
+     * 根据给定的action获取对应的字符 a g r s e
+     * @param action 给定的动作action
+     * @return 对应的字符
+     */
+    private char getCharAction(int action) {
+        switch (action) {
+            case Entry.ACCEPT:
+                return 'a';
+            case Entry.GOTO:
+                return 'g';
+            case Entry.REDUCE:
+                return 'r';
+            case Entry.SHIFT:
+                return 's';
+            case Entry.ERROR:
+                return 'e';
+        }
+        return 'e';
+    }
+
+    /**
+     * 打印最后生成的表
+     */
+    void printTables() {
+        System.out.printf("\t");
+        for (Terminal terminal : terminals) {
+            System.out.printf("%c\t", terminal.getValue());
+        }
+        for (NonTerminal nonTerminal : nonTerminals) {
+            System.out.printf("%c\t", nonTerminal.getValue());
+        }
+        System.out.println();
+        int sz = 9, dim;//获取状态总数
+        for (int i = 1; i <= sz; ++i) {
+            System.out.printf("%d\t", i);
+            for (Terminal terminal : terminals) {
+                dim = transDim(i, terminal);
+                //System.out.printf("\n状态 %d terminal %c dim %d\n", i, terminal.getValue(), dim);
+                Entry entry = tables.get(dim);
+                if(entry == null)
+                    System.out.print("  \t");
+                else
+                    System.out.printf("%c%d\t",  getCharAction(entry.getAction()), entry.getState());
+            }
+            for (NonTerminal nonTerminal : nonTerminals) {
+                dim = transDim(i, nonTerminal);
+                //System.out.printf("\n状态 %d nonterminal %c dim %d\n", i, nonTerminal.getValue(), dim);
+                Entry entry = tables.get(dim);
+                if(entry == null)
+                    System.out.print("  \t");
+               else {
+                    //System.out.println("状态" + i + "遇到的符号" + nonTerminal.getValue());
+                   // System.out.println(entry.toString());
+                  //  System.out.println("动作" + entry.getAction() + nonTerminal.getValue());
+                    System.out.printf("%c%d\t", getCharAction(entry.getAction()), entry.getState());
+                }
+            }
+            System.out.println();
+        }
     }
 
     //将state和符号转换成一个int 该int用于tables 去寻找对应的entry
     private int transDim(int state, Symbol symbol) {
-        return state << 8 + (int) symbol.getValue();
+        return Objects.hash(state, symbol.getValue());
     }
 
     /**
@@ -546,7 +647,7 @@ public class LR {
         //2.构建增广文法
         lr.geneProduction(grammar);
         lr.construct();
-
+        /*
         Terminal leftParenthesis = new Terminal('(');
         Terminal rightParenthesis = new Terminal(')');
         Terminal x = new Terminal('x');
@@ -579,7 +680,6 @@ public class LR {
 
         //4.根据项目集合产生分析表
 
-        /*
         int dim = lr.transDim(1, leftParenthesis);
         lr.tables.put(dim, new Entry(3, Entry.SHIFT));
         dim = lr.transDim(1, x);
@@ -654,8 +754,9 @@ public class LR {
         lr.tables.put(dim, new Entry(4, Entry.REDUCE));
         dim = lr.transDim(9, Terminal.End);
         lr.tables.put(dim, new Entry(4, Entry.REDUCE));
-        */
+
+        lr.printTables();*/
         //5.根据分析表进行分析
-        //System.out.println(lr.analysis(s));
+        System.out.println(lr.analysis(s));
     }
 }
