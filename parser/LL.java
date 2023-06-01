@@ -132,12 +132,12 @@ public class LL {
     Integer transDim(NonTerminal nonTerminal, Terminal terminal) {
         //show index
        // System.out.println((nonTerminal.getIntValue() << 8 + terminal.getIntValue()));
-        return nonTerminal.getIntValue() << 8 + terminal.getIntValue();
+        return (nonTerminal.getIntValue() << 8) + terminal.getIntValue();
     }
 
     Integer transDim(NonTerminal nonTerminal, char c) {
        // System.out.println(nonTerminal.getIntValue() << 8 + (int) c);
-        return nonTerminal.getIntValue() << 8 + (int)c;
+        return (nonTerminal.getIntValue() << 8) + (int)c;
     }
 
     //when i don't have followMap and firstMap, this function will be used for mapping c to symbol

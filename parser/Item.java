@@ -5,6 +5,8 @@ import java.util.Objects;
 /**
  * @author JeffreySharp
  * @apiNote Item类 表示LR分析中的每一个项目
+ * LR0 production nextSymbol
+ * LR1 production nextSymbol lookahead
  */
 public class Item {
 
@@ -12,11 +14,20 @@ public class Item {
     private Production production;
     //下一个要被分析的符号
     private Symbol nextSymbol;
-    //暂时未使用
+    //下一个要被分析的符号占产生式的哪个地方
+    private int index;
+    //将被用于LR1分析
     private Symbol lookahead;
-
+    //项目的编号
     private int num;
 
+    public Item(Production production, Symbol nextSymbol, int index, Symbol lookahead, int num) {
+        this.production = production;
+        this.nextSymbol = nextSymbol;
+        this.index = index;
+        this.lookahead = lookahead;
+        this.num = num;
+    }
     public Item(Production production, Symbol nextSymbol, Symbol lookahead, int num) {
         this.production = production;
         this.nextSymbol = nextSymbol;
@@ -35,10 +46,18 @@ public class Item {
         this.nextSymbol = nextSymbol;
     }
 
-    public Item(Production production, Symbol nextSymbol, int num) {
+    public int getIndex() {
+        return index;
+    }
+
+    public void setIndex(int index) {
+        this.index = index;
+    }
+
+    public Item(Production production, Symbol nextSymbol, int index) {
         this.production = production;
         this.nextSymbol = nextSymbol;
-        this.num = num;
+        this.index = index;
     }
 
     @Override

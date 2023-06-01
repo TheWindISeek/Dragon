@@ -6,8 +6,6 @@ import java.util.*;
 import lexer.*;
 import parser.*;
 
-import javax.rmi.CORBA.Util;
-
 /**
  * file encoding: utf-8
  * @author JeffreySharp
@@ -82,15 +80,41 @@ public class Main {
         ll.program(input,grammar.toString());
 //        ll.program("a*a+a", "E TQ\nQ +TQ\nQ $\nT FW\nW *FW\nW $\nF (E)\nF a");
     }
+    public static void lab3() {
+        LR0 lr0 = new LR0();
+        String input;
+        StringBuffer grammar = new StringBuffer();
+        String line;
+        Scanner scanner = new Scanner(System.in);
+
+        System.out.println("please input the string you want to analysis.\n");
+        input = scanner.next();
+        scanner.nextLine();//skip \n
+        System.out.println("please input the grammar.\n" +
+                "please use $ to replace sigma, end with #. Be carefully! current terminals and non-terminals only accept char, which means S' is illegal.\n" +
+                "The begin symbol is the first NonTerminal, which is the left part of first production you typed.\n" +
+                "the standard grammar format is Non-Terminal{1}\\s[Terminal Non-Terminal]{1,}\n" +
+                "E TQ\n");
+        while (scanner.hasNext()) {
+            line = scanner.nextLine();
+            if("#".equals(line.trim())) break;
+            if("\n".equals(line.trim())) break;
+            grammar.append(line + "\n");
+        }
+        System.out.println("input string:\n" + input + "\ngrammar:\n" + grammar.toString());
+        System.out.println(lr0.program(input, grammar.toString()));
+    }
     public static void main(String[] args) throws IOException {
-//        System.out.println("result of lab1");
-//        lab1();
-//        System.out.println("result of lab2");
-//        lab2();
-        //set的哈希code被定义为 所有元素的hashcode之和
-        Set<Integer> set = new HashSet<>();
-        System.out.println(set.hashCode());
-        set.add(2);
-        System.out.println(set.hashCode());
+        System.out.println("result of lab1");
+        lab1();
+        System.out.println("result of lab2");
+        lab2();
+        System.out.println("result of lab3");
+        lab3();
+//        //set的哈希code被定义为 所有元素的hashcode之和
+//        Set<Integer> set = new HashSet<>();
+//        System.out.println(set.hashCode());
+//        set.add(2);
+//        System.out.println(set.hashCode());
     }
 }

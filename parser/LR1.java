@@ -4,139 +4,36 @@ import java.util.*;
 
 /**
  * @author JeffreySharp
- * @apiNote LR分析程序的构建
- * 和构建LL分析程序一样 分为两步
- * 首先是构建分析引擎 接着是构建分析产生器 先构建LR0 再深入构建LR1
- * 分析引擎在这里比较麻烦的就是多了一堆东西
- * 因此我打算使用和之前差不多的思路 即将这个表进行压缩
- * 状态+遇到的符号 进行转移 得到具体的表项编号
- * 因此我需要一种哈希技术 能够将状态和符号映射到一个数字上
- * 状态是 1 2 3 4
- * 符号是 可以预先假定小于256 然后用byte[] 啥的替换
- * 接着再让这个作为key 去得到最后的项目 这个项目应该有的内容是
- * 项目种类 accept shift reduce goto
- * 状态  int
- * <p>
- * <p>
- * 因此假如给定的文法是 (很明显 这是一个增广文法 现在我先不管是否为增广文法 开始处理)
- * 0 S' -> S #
- * 1 S  -> (L)
- * 2 S -> x
- * 3 L -> S
- * 4 L -> L, S
- * <p>
- * 执行的核心动作是
- * Closure(I) 项集合
+ * @apiNote LR1分析程序的构建
+ * 这个文件从LR0代码复制而来
+ * 接下来将按照LR1的方式进行修改
+ *
  * Closure(I) =
- * repeat
- * for I 中 任意 item A-> alpha . X beta
- * for 任意产生式 X -> γ
- * I <- I + { X -> . γ}
- * until I 没有改变
- * return I
- * <p>
- * Goto(I, X) 项集合 文法符号
+ *      repeat
+ *          for I 中的 任意项 A->alpha . X beta , z
+ *              for 任意产生式 X -> γ
+ *                  for 任意w 属于first(beta z)
+ *                      I = I + {X-> . γ, w}
+ *       until I 没有改变
+ *       return I
+ *
  * Goto(I, X) =
- * J <- empty
- * for I 中 任意 item A -> alpha . X beta
- * J = J + {A -> alpha X . beta}
- * return Closure(J)
- * <p>
- * 构造算法
- * T <- {Closure(S' -> . S # }
- * E <- empty
- * repeat
- * for T 中每一个状态 I
- * for I 中 每一个项 A -> alpha . X beta
- * J <- Goto(I, X)
- * T <- T + J
- * E <- E + I->X J
- * until E, T没有发生改变
- * <p>
- * R <- empty
- * for T 中 每一个状态 I
- * //如果是最后的结束符号
- * if I contain S' -> S . #
- * (I, #) = a
- * //归约动作
- * for I 中每一项 A -> a.
- * R <- R + {I, A->a}
- * (I,Y) = rn (n代表规则几 或者说这是第几个产生式)
- * <p>
- * 对于E 中的每一条边 I ->X J
- * //终结符说明是移进
- * X 为 终结符号
- * (I,X) = sJ
- * //非终结符说明已归约 可goto
- * X 为 非终结符号
- * (I,X) = gJ
- * <p>
- * 会得到下列表
- * (   )   x   ,   #   S   L
- * 1   s3      s2          g4
- * 2   r2  r2  r2  r2  r2
- * 3   s3      s2      g7  g5
- * 4                   a
- * 5       s6      s8
- * 6   r1  r1  r1  r1  r1
- * 7   r3  r3  r3  r3  r3
- * 8   s3      s2          g9
- * 9   r4  r4  r4  r4  r4
- * <p>
- * <p>
- * 表分析算法
- * 如果动作是
- * shift n
- * 前进到下一个单词
- * 将n压入栈中
- * reduce k
- * 从栈顶依次弹出单词 个数就是产生式右部单词的数量
- * 令 X 是规则k的左部符号
- * 在栈顶当前所处的状态I下 Goto(I, X)
- * 接收 停止分析 报告成功
- * 错误 停止分析 报告失败
- * <p>
- * DFA下标是状态编号
- * 因此需要一个符号栈和一个状态栈
- * <p>
- * <p>
- * <p>
- * 总结一下
- * <p>
- * 我需要一个类
- * 项目类用于每一个的推导与产生式
- * item
- * Production production; //哪个产生式对应的项目
- * Symbol nextSymbol; // 下一个将要被分析的符号是谁 如果是最右边了 该归约了 那么这个就可以等于一个特殊的symbol
- * Symbol lookahead; // 为后续的LR1准备
- * <p>
- * 分析表应该采取何种方法构建呢
- * <p>
- * 首先我有一个状态Int 接着我有一个文法符号Symbol
- * 我需要将这两个组合起来
- * int transDim(int state, Symbol symbol) {
- * return state << 8 + (int)symbol.getValue();
- * }
- * 接着我需要一个Map<int, Entry> tables;
- * Entry
- * int action;//什么语义动作 accept reduce shift (error)
- * int state;//紧跟着的状态 对于reduce来说其实是哪个产生式 但是没必要特地为其存储一个
- * <p>
- * 然后就是驱动算法的计算了
- * 首先需要做两个栈
- * 符号栈最开始为空
- * 但是状态栈不为空 他需要压入存在增广文法S' -> .S中的那个状态 可以验证 这样的状态只有一个
- * <p>
- * 所以这个状态是开始的状态 int beginState;//最开始的状态
- * <p>
- * <p>
- * List<set<Item> > states;//
+ *      J <- empty
+ *      for I 中的任意项 A -> alpha . X beta , z
+ *          将(A -> alpha X . beta, z) 加入到J中
+ *      return Closure(J)
+ *
+ *
+ * construct() =
+ *
  */
-public class LR {
+public class LR1 {
     Map<Integer, Set<Item>> states = new HashMap<>();//状态的编号 -> 状态编号里面的项目
     List<Set<Item>> setItemList = new ArrayList<>();//这里存放所有的set<Item>
     List<Edge> edgeList = new ArrayList<>();//这里存放所有的edge
     Map<Integer, Item> itemMap = new HashMap<>();//用于存放所有的item 便于之后的管理
+
+    Set<Edge> edgeSet = new HashSet<>();//边的集合
     NonTerminal beginSymbol = NonTerminal.Begin;
     Map<Integer, Production> productions = new HashMap<>();
     //所有的终结符
@@ -144,14 +41,144 @@ public class LR {
     //所有的非终结符号
     Set<NonTerminal> nonTerminals = new HashSet<>();
 
+    //所有的 firsts 集合
+    List<First> firsts = new ArrayList<>();
+    //终结符和所有非终结符号对应的 first
+    Map<Symbol, First> firstMap = new HashMap<>();
+    //产生式的一部分对应first string => first
+    Map<String, First> stringFirstMap = new HashMap<>();
+
     //最开始的状态
     int beginState = 1; //状态默认从1开始 由于起始状态必为1 故可这么操作
     //分析表
     Map<Integer, Entry> tables = new HashMap<>();
 
+    //cpoy set from "from" to "to"
+    private <T>void copySet(Set<T> to, Set<T> from) {
+        for (T item :from) {
+            to.add(item);
+        }
+    }
+    //copy set from "from" to "to", use isChanged to adjust whether set is altered or not.
+    private <T>boolean copySet(Set<T> to, Set<T> from, boolean isChanged) {
+        for (T item :from) {
+            isChanged |= to.add(item);
+        }
+        return isChanged;
+    }
+
+    /**
+     * gene first set from productions
+     */
+    private void geneFirst() {
+        //all terminals's first = {terminal}
+        for(Terminal t: terminals) {
+            First first = new First(t.toString());
+            first.add(t);
+
+            firsts.add(first);
+            firstMap.put(t, first);
+        }
+
+        //get all first(X)
+        // Map<NonTerminal, First> map = new HashMap<>();
+        for(NonTerminal nt: nonTerminals) {
+            firstMap.put(nt, new First(nt.toString()));
+        }
+
+        for(Production production: productions.values()) {
+            //if X -> a...
+            Symbol symbol = getSymbols(production.getRight().charAt(0));
+            if(symbol instanceof Terminal) {
+                //skip X -> sigma
+//                if(((Terminal)symbol).equals(Terminal.Empty)) continue;
+                First first = firstMap.get(production.getLeft());
+                first.add((Terminal) symbol);
+
+                //if right part only have one symbols which is terminal, then we should skip this case.
+                if(production.getRight().length() == 1) continue;
+                //right part also should be added to first list
+                First rightFirst = new First(production.getRight());
+//                copySet(rightFirst.getRight(),first.getRight());
+                rightFirst.add((Terminal) symbol);
+                stringFirstMap.put(production.getRight(),rightFirst);
+            }
+        }
+
+        //adjust whether set is changed or not.
+        boolean isChanged = true;
+        while (isChanged){
+            isChanged = false;
+            for(Production production: productions.values()) {
+                //if X -> Y1 Y2 Y3 ....
+                int index = 0;
+                Symbol symbol = getSymbols(production.getRight().charAt(index));
+                if(symbol instanceof NonTerminal) {
+                    First X = stringFirstMap.get(production.getRight());
+                    if(X == null)
+                        X = new First(production.getRight());
+                    First Y = firstMap.get((NonTerminal) symbol);
+                    boolean end = false;
+                    for(Terminal t:Y.getRight()) {
+                        if(t.equals(Terminal.Empty)) {
+                            end = true;
+                            continue;
+                        }
+                        isChanged |= X.add(t);
+                    }
+
+                    while (end) {
+                        //find all non-terminal
+                        if(index + 1 == production.getRight().length()) {
+                            break;
+                        }
+                        symbol = getSymbols(production.getRight().charAt(++index));
+                        //the terminal should be included in the first
+                        if(symbol instanceof Terminal) {
+                            isChanged |= X.add((Terminal) symbol);
+                            end = false;
+                            break;
+                        }
+                        Y = firstMap.get((NonTerminal) symbol);
+                        end = false;
+                        for (Terminal t: Y.getRight()) {
+                            if(t.equals(Terminal.Empty)) {
+                                end = true;
+                                continue;
+                            }
+                            isChanged |= X.add(t);
+                        }
+                    }
+
+                    //all Y have sigma
+                    if(end) {
+                        isChanged |= X.add(Terminal.Empty);
+                    }
+                    //right part which is Y1Y2Y3...
+//                    System.out.println(production);
+//                    System.out.println("production.getright\t" + production.getRight());
+                    stringFirstMap.put(production.getRight(),X);
+                    //left part which is X
+                    First first = firstMap.get(production.getLeft());
+//                    System.out.println("production.getleft\t" + first.getLeft());
+                    copySet(first.getRight(),X.getRight(), isChanged);
+                }
+            }
+        }
+
+        //add all first to firsts
+        for(Map.Entry<Symbol, First> entry: firstMap.entrySet()) {
+            if(entry.getKey() instanceof NonTerminal)
+                firsts.add(entry.getValue());
+        }
+        for(Map.Entry<String, First> entry: stringFirstMap.entrySet()) {
+//            System.out.println("key:\t" + entry.getKey() + "\tvalue:\t" + entry.getValue().getLeft());
+            firsts.add(entry.getValue());
+        }
+    }
 
     //get symbol from char
-    Symbol getSymbols(char c) {
+    private Symbol getSymbols(char c) {
         for (Terminal terminal : terminals) {
             if (terminal.getValue() == c) {
                 return terminal;
@@ -173,7 +200,7 @@ public class LR {
      *
      * @param grammar
      */
-    public void geneProduction(String grammar) {
+    private void geneProduction(String grammar) {
         String[] splits = grammar.split("\n");
 
         StringBuffer symbols = new StringBuffer();
@@ -231,9 +258,9 @@ public class LR {
         terminals.add(Terminal.Empty);
         terminals.add(Terminal.End);
     }
-
     /**
      * 根据产生式生成所有的items 方便后续set的判断
+     * 生成item的时候可能更加需要将所有可能的情况都给包括进去  包括lookahead的所有情况
      */
     private void geneItems() {
         int index, sz, hashCode;
@@ -241,9 +268,9 @@ public class LR {
         for (Production production : productions.values()) {
             index = 0;
             sz = production.getRight().length();
-            while (index < sz) {
+            while (index < sz) { //其实在这里我生成所有的式子的时候 直接把所有的都生成了
                 hashCode = Objects.hash(production, getSymbols(production.getRight().charAt(index)));
-                item = new Item(production, getSymbols(production.getRight().charAt(index)));
+                item = new Item(production, getSymbols(production.getRight().charAt(index)), index);//新建一个项目的时候记录他跑到了哪个index
                 itemMap.put(hashCode, item);
                 index++;
                 System.out.printf("%-10d\t %s \n", hashCode, item.toString());
@@ -256,8 +283,7 @@ public class LR {
     }
 
     /**
-     * 求状态I的闭包
-     *
+     * 求状态I的闭包 LR1版本
      * @param I 状态I 其中包含项目
      * @return closure(I)
      */
@@ -267,17 +293,30 @@ public class LR {
         while (isChanged) {
             isChanged = false;
             list.clear();
-            for (Item item : I) {
-                //跳过 下一个符号是终结符号的 因为这样肯定不需要求解
-                if (item.getNextSymbol().equals(Symbol.RIGHTMOST)) continue;
-                if (item.getNextSymbol() instanceof Terminal) continue;
-                NonTerminal nextSymbol = (NonTerminal) item.getNextSymbol();
+            for (Item item : I) { // A-> alpha .X beta, z
+                if (item.getNextSymbol().equals(Symbol.RIGHTMOST)) continue;//下一个符号是文法末尾 不需要求解
+                if (item.getNextSymbol() instanceof Terminal) continue;//下一个符号是终结符号 不可能X->γ
+
+                NonTerminal nextSymbol = (NonTerminal) item.getNextSymbol();//获得下一个符号
                 for (Production production : productions.values()) {
-                    if (nextSymbol.equals(production.getLeft())) {
+                    if (nextSymbol.equals(production.getLeft())) {//找到产生式 X-> γ
                         //新建一个项目 加入到set中; x->y .y
-                        int hashCode = Objects.hash(production, getSymbols(production.getRight().charAt(0)));
-                        //Item i = new Item(production, getSymbols(production.getRight().charAt(0)));
-                        list.add(itemMap.get(hashCode));
+                        //for 任意w 属于 FIRST (beta z)
+
+                        String right = item.getProduction().getRight();
+                        int find = item.getIndex();//找到x的下标
+                        String firstString = right.substring(find+1);//截取他后面所有的字符串 可以肯定这个字符串不会为空 因为为空了 我前面就通过rightmost判别了
+
+                        //如果z是空 那么接下来其实我们只需要看 first(beta)
+                        if (!item.getLookahead().equals(Symbol.EMPTY)) {
+                            firstString += item.getLookahead().getValue();// 当lookahead不为空时 应该算上lookahead的部分 对吗？
+                        }
+
+                        for(Terminal terminal: stringFirstMap.get(firstString).getRight()) { //根据产生式右部的结果 进行计算
+                            int hashCode = Objects.hash(production, getSymbols(production.getRight().charAt(0)), terminal);//这里可能获取不到
+                            //Item i = new Item(production, getSymbols(production.getRight().charAt(0)));
+                            list.add(itemMap.get(hashCode));
+                        }
                     }
                 }
             }
@@ -302,7 +341,7 @@ public class LR {
             //如果可以跳到下一个状态
             if (item.getNextSymbol().equals(X)) {
                 String s = item.getProduction().getRight();
-                int index = 1 + s.indexOf(X.getValue());
+                int index = item.getIndex()+1;
                 Symbol c = index == s.length() ? Symbol.RIGHTMOST : getSymbols(s.charAt(index));
                 int hash = Objects.hash(item.getProduction(), c);
                 J.add(itemMap.get(hash));
@@ -388,13 +427,11 @@ public class LR {
      * 构造LR0分析器的分析算法
      */
     public void construct() {
-        geneItems();//先生成所有的项目 便于后续的set操作
-
         boolean isChanged = true, isItemEq;
         int index = 1;//状态的编号
 
         Set<Item> tmp = Closure(states.get(beginState));//初始化T为最开始状态的闭包
-        Set<Edge> edgeSet = new HashSet<>();// E <= empty
+        // E <= empty
         List<Set<Item>> addItemList = new ArrayList<>();
         List<Edge> addEdgeList = new ArrayList<>();
 
@@ -441,24 +478,12 @@ public class LR {
             isChanged |= edgeSet.addAll(addEdgeList);
         }
 
-        //打印状态
-        for (Map.Entry<Integer, Set<Item>> items : states.entrySet()) {
-            System.out.printf("这是%d状态\n", items.getKey());
-            print(items.getValue());
-        }
-        //打印边
-        //System.out.println("边数量" + edgeSet.size());
-        for (Edge edge : edgeSet) {
-            System.out.println();
-            print(states.get(edge.getFrom()));
-            System.out.println(edge);
-            print(states.get(edge.getTo()));
-            System.out.println();
-        }
+        printStates();
+        printEdges();
 
         int dim;
         //目前我有 edge items
-        //归约动作 REDUCE J
+        //归约动作 REDUCE J reduce 这里和LR0是不一样的
         for (Map.Entry<Integer, Set<Item>> items : states.entrySet()) {
             for (Item item : items.getValue()) {
                 if (item.getNextSymbol().equals(Symbol.RIGHTMOST)) { //如果已经到最右边了 可以进行归约了
@@ -492,7 +517,6 @@ public class LR {
             }
         }
 
-        printTables();
     }
 
     /**
@@ -516,6 +540,45 @@ public class LR {
         return 'e';
     }
 
+    /**
+     * 打印first集合
+     */
+    void printFirst() {
+        System.out.println("下面是first集合");
+        for (First first : firsts) {
+            System.out.print(first.getLeft() + "\t=\t");
+            for (Terminal t :
+                    first.getRight()) {
+                System.out.print(t.toString() + " ");
+            }
+            System.out.println();
+        }
+    }
+    /**
+     * 打印所有的状态
+     */
+    void printStates() {
+        //打印状态
+        for (Map.Entry<Integer, Set<Item>> items : states.entrySet()) {
+            System.out.printf("这是%d状态\n", items.getKey());
+            print(items.getValue());
+        }
+    }
+
+    /**
+     * 打印所有的边
+     */
+    void printEdges() {
+        //打印边
+        //System.out.println("边数量" + edgeSet.size());
+        for (Edge edge : edgeSet) {
+            System.out.println();
+            print(states.get(edge.getFrom()));
+            System.out.println(edge);
+            print(states.get(edge.getTo()));
+            System.out.println();
+        }
+    }
     /**
      * 打印最后生成的表
      */
@@ -632,135 +695,45 @@ public class LR {
         return flag;
     }
 
+    /**
+     * 运行最后的程序 给定input输入串 和grammar 输入的语法
+     * @param input 要分析的串
+     * @param grammar 要分析的语法
+     * @return 是否匹配
+     */
+    public boolean program(String input, String grammar) {
+        geneProduction(grammar);//生成产生式 终结符号 非终结符号
+        geneFirst();//生成first集合
+        geneItems();//先生成所有的项目 便于后续的set操作
+        construct();//构造最后的表项
+        printTables();//打印表
+        return analysis(input);//返回分析结果
+    }
+
     public static void main(String[] args) {
         /*
         给定的文法
-        S (L)
-        S x
-        L S
-        L L,S
+        S V=E
+        S E
+        E V
+        V x
+        V *E
+
+        分析串
+        *x=**x
         * */
-        LR lr = new LR();
+        LR1 lr1 = new LR1();
         //默认文法第一个符号为 S 即文法的开始符号
+        String grammar = "S V=E\nS E\n E V\nV x\nV *E\n";
+        String s = "*x=**x";
+        lr1.geneProduction(grammar);
+        lr1.geneFirst();
+        lr1.printFirst();
 
-        String grammar = "S (L)\nS x\nL S\nL L,S";
-        String s = "((x,(x)))";
-        grammar = "E E+T\nE T\nT T*F\nT F\nF (E)\nF v\nF d";
-        s = "v+v*d";
-        //1.读入产生式
-        //2.构建增广文法
-        lr.geneProduction(grammar);
-        lr.construct();
-        /*
-        Terminal leftParenthesis = new Terminal('(');
-        Terminal rightParenthesis = new Terminal(')');
-        Terminal x = new Terminal('x');
-        Terminal comma = new Terminal(',');
-
-        NonTerminal S = new NonTerminal('S');
-        NonTerminal L = new NonTerminal('L');
-
-        Production Shat = new Production(lr.beginSymbol, "S", 0);
-        Production SL = new Production(S, "(L)", 1);
-        Production Sx = new Production(S, "x", 2);
-        Production LS = new Production(L, "S", 3);
-        Production LLS = new Production(L, "L,S", 4);
-
-        lr.terminals.add(leftParenthesis);
-        lr.terminals.add(rightParenthesis);
-        lr.terminals.add(x);
-        lr.terminals.add(Terminal.End);
-        lr.terminals.add(comma);
-        lr.nonTerminals.add(S);
-        lr.nonTerminals.add(L);
-        lr.productions.put(Shat.getNum(), Shat);
-        lr.productions.put(SL.getNum(), SL);
-        lr.productions.put(Sx.getNum(), Sx);
-        lr.productions.put(LS.getNum(), LS);
-        lr.productions.put(LLS.getNum(), LLS);
-
-
-        //3.构造项目集合
-
-        //4.根据项目集合产生分析表
-
-        int dim = lr.transDim(1, leftParenthesis);
-        lr.tables.put(dim, new Entry(3, Entry.SHIFT));
-        dim = lr.transDim(1, x);
-        lr.tables.put(dim, new Entry(2, Entry.SHIFT));
-        dim = lr.transDim(1, S);
-        lr.tables.put(dim, new Entry(4, Entry.GOTO));
-
-        dim = lr.transDim(2, leftParenthesis);
-        lr.tables.put(dim, new Entry(2, Entry.REDUCE));
-        dim = lr.transDim(2, rightParenthesis);
-        lr.tables.put(dim, new Entry(2, Entry.REDUCE));
-        dim = lr.transDim(2, x);
-        lr.tables.put(dim, new Entry(2, Entry.REDUCE));
-        dim = lr.transDim(2, comma);
-        lr.tables.put(dim, new Entry(2, Entry.REDUCE));
-        dim = lr.transDim(2, Terminal.End);
-        lr.tables.put(dim, new Entry(2, Entry.REDUCE));
-
-        dim = lr.transDim(3, leftParenthesis);
-        lr.tables.put(dim, new Entry(3, Entry.SHIFT));
-        dim = lr.transDim(3, x);
-        lr.tables.put(dim, new Entry(2, Entry.SHIFT));
-        dim = lr.transDim(3, S);
-        lr.tables.put(dim, new Entry(7, Entry.GOTO));
-        dim = lr.transDim(3, L);
-        lr.tables.put(dim, new Entry(5, Entry.GOTO));
-
-        dim = lr.transDim(4, Terminal.End);
-        lr.tables.put(dim, new Entry(0, Entry.ACCEPT));
-
-        dim = lr.transDim(5, rightParenthesis);
-        lr.tables.put(dim, new Entry(6, Entry.SHIFT));
-        dim = lr.transDim(5, comma);
-        lr.tables.put(dim, new Entry(8, Entry.SHIFT));
-
-        dim = lr.transDim(6, leftParenthesis);
-        lr.tables.put(dim, new Entry(1, Entry.REDUCE));
-        dim = lr.transDim(6, rightParenthesis);
-        lr.tables.put(dim, new Entry(1, Entry.REDUCE));
-        dim = lr.transDim(6, x);
-        lr.tables.put(dim, new Entry(1, Entry.REDUCE));
-        dim = lr.transDim(6, comma);
-        lr.tables.put(dim, new Entry(1, Entry.REDUCE));
-        dim = lr.transDim(6, Terminal.End);
-        lr.tables.put(dim, new Entry(1, Entry.REDUCE));
-
-        dim = lr.transDim(7, leftParenthesis);
-        lr.tables.put(dim, new Entry(3, Entry.REDUCE));
-        dim = lr.transDim(7, rightParenthesis);
-        lr.tables.put(dim, new Entry(3, Entry.REDUCE));
-        dim = lr.transDim(7, x);
-        lr.tables.put(dim, new Entry(3, Entry.REDUCE));
-        dim = lr.transDim(7, comma);
-        lr.tables.put(dim, new Entry(3, Entry.REDUCE));
-        dim = lr.transDim(7, Terminal.End);
-        lr.tables.put(dim, new Entry(3, Entry.REDUCE));
-
-        dim = lr.transDim(8, leftParenthesis);
-        lr.tables.put(dim, new Entry(3, Entry.SHIFT));
-        dim = lr.transDim(8, x);
-        lr.tables.put(dim, new Entry(2, Entry.SHIFT));
-        dim = lr.transDim(8, S);
-        lr.tables.put(dim, new Entry(9, Entry.GOTO));
-
-        dim = lr.transDim(9, leftParenthesis);
-        lr.tables.put(dim, new Entry(4, Entry.REDUCE));
-        dim = lr.transDim(9, rightParenthesis);
-        lr.tables.put(dim, new Entry(4, Entry.REDUCE));
-        dim = lr.transDim(9, x);
-        lr.tables.put(dim, new Entry(4, Entry.REDUCE));
-        dim = lr.transDim(9, comma);
-        lr.tables.put(dim, new Entry(4, Entry.REDUCE));
-        dim = lr.transDim(9, Terminal.End);
-        lr.tables.put(dim, new Entry(4, Entry.REDUCE));
-
-        lr.printTables();*/
-        //5.根据分析表进行分析
-        System.out.println(lr.analysis(s));
+        lr1.geneItems();
+        lr1.construct();
+        lr1.printTables();
+        System.out.println("\n分析的结果是");
+        System.out.println(lr1.analysis(s));
     }
 }
