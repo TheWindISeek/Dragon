@@ -4,54 +4,139 @@ import java.util.*;
 
 /**
  * @author JeffreySharp
- * @apiNote LR1分析程序的构建
- * 这个文件从LR0代码复制而来
- * 接下来将按照LR1的方式进行修改
+ * @apiNote SLR分析程序的构建
+ * 因为SLR和LR从构建上来说可以说几乎一样
+ * 只是在生成归约项的时候会出现不一样的地方
+ * SLR只在下一个符号 在当前的左部的文法符号 的follow集合的时候才会去归约
+ * 也就是说构造的方法如下所示
  *
- * Closure(I) =
- *      repeat
- *          for I 中的 任意项 A->alpha . X beta , z
- *              for 任意产生式 X -> γ
- *                  for 任意w 属于first(beta z)
- *                      I = I + {X-> . γ, w}
- *       until I 没有改变
- *       return I
+ * 其实我这么写就是默认 shift的优先级比reduce高了 也不是不可以 这样其实也是可以解决冲突的
  *
+ * Reduce
+ *      R <= {}
+ *      for T 中的每一个状态 I
+ *          for I 中的每一个项 A-> a.
+ *              for Follow(A) 中的每一个单词 X
+ *                  R <= R + {I, X, A->a}
  *
- *
- * Goto(I, X) =
- *      J <- empty
- *      for I 中的任意项 A -> alpha . X beta , z
- *          将(A -> alpha X . beta, z) 加入到J中
- *      return Closure(J)
- *
- *
- * construct() =
- *
+ * 对于文法
+ * 0 S => E
+ * 1 E => T + E
+ * 2 E => T
+ * 3 T => x
  */
-public class LR1 {
+public class SLR {
+    List<First> firsts = new ArrayList<>();//所有的 firsts 集合
+    Map<Symbol, First> firstMap = new HashMap<>();//终结符和所有非终结符号对应的 first
+    Map<String, First> stringFirstMap = new HashMap<>();//产生式的一部分对应first string => first
+    //Nonterminal -> Follow; whileas only Nonterminal have Follow set...?
+    Map<NonTerminal, Follow> followMap = new HashMap<>();
+    List<Follow> follows = new ArrayList<>();
+
+
     Map<Integer, Set<Item>> states = new HashMap<>();//状态的编号 -> 状态编号里面的项目
     List<Set<Item>> setItemList = new ArrayList<>();//这里存放所有的set<Item>
     List<Edge> edgeList = new ArrayList<>();//这里存放所有的edge
     Map<Integer, Item> itemMap = new HashMap<>();//用于存放所有的item 便于之后的管理
+    NonTerminal beginSymbol = NonTerminal.Begin;
+    Map<Integer, Production> productions = new HashMap<>();
+    //所有的终结符
+    Set<Terminal> terminals = new HashSet<>();
+    //所有的非终结符号
+    Set<NonTerminal> nonTerminals = new HashSet<>();
 
-    Set<Edge> edgeSet = new HashSet<>();//边的集合
-    NonTerminal beginSymbol = NonTerminal.Begin;//开始符号 用于做增广文法
-    Map<Integer, Production> productions = new HashMap<>();//产生式int => production
-
-    Set<Terminal> terminals = new HashSet<>();//所有的终结符
-
-    Set<NonTerminal> nonTerminals = new HashSet<>();//所有的非终结符号
-
-    List<First> firsts = new ArrayList<>();//所有的 firsts 集合
-
-    Map<Symbol, First> firstMap = new HashMap<>();//终结符和所有非终结符号对应的 first
-
-    Map<String, First> stringFirstMap = new HashMap<>();//产生式的一部分对应first string => first
-
+    //最开始的状态
     int beginState = 1; //状态默认从1开始 由于起始状态必为1 故可这么操作
+    //分析表
+    Map<Integer, Entry> tables = new HashMap<>();
 
-    Map<Integer, Entry> tables = new HashMap<>();//分析表
+
+    //get symbol from char
+    Symbol getSymbols(char c) {
+        for (Terminal terminal : terminals) {
+            if (terminal.getValue() == c) {
+                return terminal;
+            }
+        }
+
+        for (NonTerminal nonTerminal : nonTerminals) {
+            if (nonTerminal.getValue() == c) {
+                return nonTerminal;
+            }
+        }
+        return Terminal.End;
+    }
+
+    /**
+     * generate terminals, nontermianls, productions using grammar
+     * which is
+     * String grammar = "S AaS\nS BbS\nS d\nA a\nB $\nB c";
+     *
+     * @param grammar
+     */
+    private void geneProduction(String grammar) {
+        String[] splits = grammar.split("\n");
+
+        StringBuffer symbols = new StringBuffer();
+        int index = 0;
+
+        for (String s_production : splits) {
+            String[] strings = s_production.split(" ");
+
+            //0->NonTermianl 1->right
+            String left = strings[0];
+            String right = strings[1];
+
+            //add nonterminal and production to set
+            Symbol symbol = getSymbols(left.charAt(0));
+
+            //already have
+            if (!(symbol instanceof NonTerminal)) {
+                symbol = new NonTerminal(left.charAt(0));
+                if (nonTerminals.size() == 0) {//这里是否还需要这样做就不一定了
+                    //制作一个增广文法 beginSymbol -> left
+                    Production production = new Production(beginSymbol, left, index++);
+                    productions.put(production.getNum(), production);
+
+                    //初始状态
+                    Set<Item> items = new HashSet<>();
+                    Item item = new Item(production, symbol, Symbol.EMPTY);
+                    items.add(item);//这里初次添加项目项目集合
+                    setItemList.add(items);
+                    int key = Objects.hash(production, symbol, Symbol.EMPTY);
+                    itemMap.put(key, item);
+                    states.put(beginState, items);
+                }
+                nonTerminals.add((NonTerminal) symbol);
+            }
+
+            //add production and nonterminal
+            Production production = new Production((NonTerminal) symbol, right, index++);
+//            productions.add(production);
+            productions.put(production.getNum(), production);
+            symbols.append(right);
+            nonTerminals.add(beginSymbol);//将增广文法的符号也添加进去
+        }
+
+        //add terminal
+        for (int i = 0; i < symbols.length(); i++) {
+            char c = symbols.charAt(i);
+            Symbol symbol = getSymbols(c);
+
+            //we finally process sigma
+            if (symbol instanceof NonTerminal) continue;
+            if (c == '$') continue;
+
+            //if not found
+            if (symbol.equals(Terminal.End)) {
+                terminals.add(new Terminal(c));
+            }
+        }
+
+        //add end and empty, while as empty maybe have been added.
+        terminals.add(Terminal.Empty);
+        terminals.add(Terminal.End);
+    }
 
     //cpoy set from "from" to "to"
     private <T>void copySet(Set<T> to, Set<T> from) {
@@ -177,95 +262,110 @@ public class LR1 {
         }
     }
 
-    //get symbol from char
-    private Symbol getSymbols(char c) {
-        for (Terminal terminal : terminals) {
-            if (terminal.getValue() == c) {
-                return terminal;
+
+    /**
+     * recursive slove follow
+     * @param left left part of Non-terminal
+     * @param index from index to length
+     * @param right production body
+     */
+    private boolean followFromIndex(NonTerminal left, int index, String right, boolean isChanged) {
+        Symbol symbol = getSymbols(right.charAt(index++));
+        //find the first non-terminal of production
+        while (symbol instanceof Terminal && index < right.length()) {
+            symbol = getSymbols(right.charAt(index++));
+        }
+
+        //really found
+        if(symbol instanceof NonTerminal) {
+            boolean empty = false;
+            NonTerminal B = (NonTerminal) symbol;
+            symbol = index < right.length() ? getSymbols(right.charAt(index)) : Terminal.Empty;
+            //get next char's first set
+            First first = firstMap.get(symbol);
+            Follow follow = followMap.get(B);
+
+            for(Terminal t:first.getRight()) {
+                if(t.equals(Terminal.Empty)) {
+                    empty = true;
+                    continue;
+                }
+                isChanged |= follow.add(t);
+            }
+
+            //if sigma belong to beta
+            if(empty) {
+                //follow(B) += follow(A)
+                for(Terminal t: followMap.get(left).getRight()) {
+                    isChanged |= follow.add(t);
+                }
             }
         }
 
-        for (NonTerminal nonTerminal : nonTerminals) {
-            if (nonTerminal.getValue() == c) {
-                return nonTerminal;
-            }
-        }
-        return Terminal.End;
+        return isChanged;
     }
 
     /**
-     * generate terminals, nontermianls, productions using grammar
-     * which is
-     * String grammar = "S AaS\nS BbS\nS d\nA a\nB $\nB c";
-     *
-     * @param grammar
+     * generate follow set from first set
      */
-    private void geneProduction(String grammar) {
-        String[] splits = grammar.split("\n");
+    public void geneFollow() {
+//        beginSymbol = getBeginSymbol();
 
-        StringBuffer symbols = new StringBuffer();
-        int index = 0;
+        //all non-terminal to follow map
+        Follow follow_beginSymbol = new Follow(beginSymbol, Terminal.End);
+        followMap.put(beginSymbol,follow_beginSymbol);
+        for(NonTerminal nonTerminal:nonTerminals) {
+            if(nonTerminal.equals(beginSymbol)) continue;
+            followMap.put(nonTerminal, new Follow(nonTerminal));
+        }
 
-        for (String s_production : splits) {
-            String[] strings = s_production.split(" ");
-
-            //0->NonTermianl 1->right
-            String left = strings[0];
-            String right = strings[1];
-
-            //add nonterminal and production to set
-            Symbol symbol = getSymbols(left.charAt(0));
-
-            //already have
-            if (!(symbol instanceof NonTerminal)) {
-                symbol = new NonTerminal(left.charAt(0));
-                if (nonTerminals.size() == 0) {//这里是否还需要这样做就不一定了
-                    //制作一个增广文法 beginSymbol -> left
-                    Production production = new Production(beginSymbol, left, index++);
-                    productions.put(production.getNum(), production);
-
-                    //初始状态
-                    Set<Item> items = new HashSet<>();
-                    Item item = new Item(production, symbol, Symbol.EMPTY);
-                    items.add(item);//这里初次添加项目项目集合
-                    setItemList.add(items);
-                    int key = Objects.hash(production, symbol, Symbol.EMPTY);
-                    itemMap.put(key, item);
-                    states.put(beginState, items);
+        boolean isChanged = true;
+        //the first production's left is begin!
+        while (isChanged){
+            isChanged = false;
+            for(Production production:productions.values()) {
+                NonTerminal left = production.getLeft();
+                String right = production.getRight();
+                int index = 0;
+                while (index < right.length()) {
+                    isChanged |= followFromIndex(left,index,right, isChanged);
+                    index++;
                 }
-                nonTerminals.add((NonTerminal) symbol);
-            }
-
-            //add production and nonterminal
-            Production production = new Production((NonTerminal) symbol, right, index++);
-//            productions.add(production);
-            productions.put(production.getNum(), production);
-            symbols.append(right);
-            nonTerminals.add(beginSymbol);//将增广文法的符号也添加进去
-        }
-
-        //add terminal
-        for (int i = 0; i < symbols.length(); i++) {
-            char c = symbols.charAt(i);
-            Symbol symbol = getSymbols(c);
-
-            //we finally process sigma
-            if (symbol instanceof NonTerminal) continue;
-            if (c == '$') continue;
-
-            //if not found
-            if (symbol.equals(Terminal.End)) {
-                terminals.add(new Terminal(c));
             }
         }
 
-        //add end and empty, while as empty maybe have been added.
-        terminals.add(Terminal.Empty);
-        terminals.add(Terminal.End);
+        //to follow list
+        for(Map.Entry<NonTerminal,Follow> followEntry:followMap.entrySet()) {
+            follows.add(followEntry.getValue());
+        }
     }
+
+
+    void showFirst() {
+        System.out.println("first are as followed.");
+        for (First first : firsts) {
+            System.out.print(first.getLeft() + "\t=\t");
+            for (Terminal t :
+                    first.getRight()) {
+                System.out.print(t.toString() + " ");
+            }
+            System.out.println();
+        }
+    }
+
+    void showFollow() {
+        System.out.println("follow are as followed.");
+        for(Follow follow:follows) {
+            System.out.print(follow.getLeft() + "\t=\t");
+            for(Terminal t:follow.getRight()) {
+                System.out.print(t.toString() + " ");
+            }
+            System.out.println();
+        }
+    }
+
     /**
      * 根据产生式生成所有的items 方便后续set的判断
-     * 生成item的时候可能更加需要将所有可能的情况都给包括进去  包括lookahead的所有情况
      */
     private void geneItems() {
         int index, sz, hashCode;
@@ -274,23 +374,22 @@ public class LR1 {
             index = 0;
             sz = production.getRight().length();
             while (index < sz) { //其实在这里我生成所有的式子的时候 直接把所有的都生成了
-                for(Terminal terminal: terminals) {//需要把所有的都给生成了 也就是lookahead都给生成了
-                    hashCode = Objects.hash(production, getSymbols(production.getRight().charAt(index)), terminal);
-                    item = new Item(production, getSymbols(production.getRight().charAt(index)), terminal, index);//新建一个项目的时候记录他跑到了哪个index
-                    itemMap.put(hashCode, item);
-                    System.out.printf("%-10d\t %s \n", hashCode, item.toString());
-                }
+                hashCode = Objects.hash(production, getSymbols(production.getRight().charAt(index)));
+                item = new Item(production, getSymbols(production.getRight().charAt(index)), index);
+                itemMap.put(hashCode, item);
                 index++;
+                System.out.printf("%-10d\t %s \n", hashCode, item.toString());
             }
-            hashCode = Objects.hash(production, Symbol.RIGHTMOST, Symbol.EMPTY);
-            item = new Item(production, Symbol.RIGHTMOST, Symbol.EMPTY);//lookahead为空
+            hashCode = Objects.hash(production, Symbol.RIGHTMOST);
+            item = new Item(production, Symbol.RIGHTMOST);
             itemMap.put(hashCode, item);
             System.out.printf("%-10d\t %s \n", hashCode, item.toString());
         }
     }
 
     /**
-     * 求状态I的闭包 LR1版本
+     * 求状态I的闭包
+     *
      * @param I 状态I 其中包含项目
      * @return closure(I)
      */
@@ -300,29 +399,17 @@ public class LR1 {
         while (isChanged) {
             isChanged = false;
             list.clear();
-            for (Item item : I) { // A-> alpha .X beta, z
-                if (item.getNextSymbol().equals(Symbol.RIGHTMOST)) continue;//下一个符号是文法末尾 不需要求解
-                if (item.getNextSymbol() instanceof Terminal) continue;//下一个符号是终结符号 不可能X->γ
-
-                NonTerminal nextSymbol = (NonTerminal) item.getNextSymbol();//获得下一个符号
+            for (Item item : I) {
+                //跳过 下一个符号是终结符号的 因为这样肯定不需要求解
+                if (item.getNextSymbol().equals(Symbol.RIGHTMOST)) continue;
+                if (item.getNextSymbol() instanceof Terminal) continue;
+                NonTerminal nextSymbol = (NonTerminal) item.getNextSymbol();
                 for (Production production : productions.values()) {
-                    if (nextSymbol.equals(production.getLeft())) {//找到产生式 X-> γ
+                    if (nextSymbol.equals(production.getLeft())) {//仔细思考一下这里 其实也没有问题 是吧 因为只要识别到了是这个 我把他可能到的状态都给加进去就是了
                         //新建一个项目 加入到set中; x->y .y
-                        //for 任意w 属于 FIRST (beta z)
-
-                        String right = item.getProduction().getRight();
-                        int find = item.getIndex();//找到x的下标
-                        String firstString = right.substring(find+1);//截取他后面所有的字符串 可以肯定这个字符串不会为空 因为为空了 我前面就通过rightmost判别了
-
-                        //如果z是空 那么接下来其实我们只需要看 first(beta)
-                        if (!item.getLookahead().equals(Symbol.EMPTY)) {
-                            firstString += item.getLookahead().getValue();// 当lookahead不为空时 应该算上lookahead的部分 对吗？
-                        }
-
-                        for(Terminal terminal: stringFirstMap.get(firstString).getRight()) { //根据产生式右部的结果 进行计算
-                            int hashCode = Objects.hash(production, getSymbols(production.getRight().charAt(0)), terminal);//这里可能获取不到
-                            list.add(itemMap.get(hashCode));
-                        }
+                        int hashCode = Objects.hash(production, getSymbols(production.getRight().charAt(0)));
+                        //Item i = new Item(production, getSymbols(production.getRight().charAt(0)));
+                        list.add(itemMap.get(hashCode));
                     }
                 }
             }
@@ -433,11 +520,13 @@ public class LR1 {
      * 构造LR0分析器的分析算法
      */
     public void construct() {
+        geneItems();//先生成所有的项目 便于后续的set操作
+
         boolean isChanged = true, isItemEq;
         int index = 1;//状态的编号
 
         Set<Item> tmp = Closure(states.get(beginState));//初始化T为最开始状态的闭包
-        // E <= empty
+        Set<Edge> edgeSet = new HashSet<>();// E <= empty
         List<Set<Item>> addItemList = new ArrayList<>();
         List<Edge> addEdgeList = new ArrayList<>();
 
@@ -484,27 +573,52 @@ public class LR1 {
             isChanged |= edgeSet.addAll(addEdgeList);
         }
 
-        printStates();
-        printEdges();
+        //打印状态
+        for (Map.Entry<Integer, Set<Item>> items : states.entrySet()) {
+            System.out.printf("这是%d状态\n", items.getKey());
+            print(items.getValue());
+        }
+        //打印边
+        //System.out.println("边数量" + edgeSet.size());
+        for (Edge edge : edgeSet) {
+            System.out.println();
+            print(states.get(edge.getFrom()));
+            System.out.println(edge);
+            print(states.get(edge.getTo()));
+            System.out.println();
+        }
+
 
         int dim;
         //目前我有 edge items
-        //归约动作 REDUCE J reduce 这里和LR0是不一样的
+        //归约动作 REDUCE J
         for (Map.Entry<Integer, Set<Item>> items : states.entrySet()) {
             for (Item item : items.getValue()) {
                 if (item.getNextSymbol().equals(Symbol.RIGHTMOST)) { //如果已经到最右边了 可以进行归约了
                     Production production = item.getProduction();
+
                     if (production.getNum() == 0) { // accept
                         dim = transDim(items.getKey(), Terminal.End);
                         //System.out.printf("accept %d production: %c->%s dim: %d\n", items.getKey(), production.getLeft().getValue(), production.getRight(), dim);
                         tables.put(dim, new Entry(production.getNum(), Entry.ACCEPT));
                     } else { // reduce j
-                        for(Terminal terminal: terminals) { // 这里就是LR0的缺陷 直接把所有的都置为了rj
+
+                        //只把follow后面的置为可跳转的
+                        for(Terminal terminal: followMap.get(production.getLeft()).getRight()) {
                             dim = transDim(items.getKey(), terminal);
                             //System.out.printf("reduce %d production: %c->%s dim: %d\n", items.getKey(), production.getLeft().getValue(), production.getRight(), dim);
                             tables.put(dim, new Entry(production.getNum(), Entry.REDUCE));
                         }
+//                        for(Terminal terminal: terminals) { // 这里就是LR0的缺陷 直接把所有的都置为了rj
+//                            dim = transDim(items.getKey(), terminal);
+//                            //System.out.printf("reduce %d production: %c->%s dim: %d\n", items.getKey(), production.getLeft().getValue(), production.getRight(), dim);
+//                            tables.put(dim, new Entry(production.getNum(), Entry.REDUCE));
+//                        }
                     }
+
+
+
+
                 }
             }
         }
@@ -518,11 +632,19 @@ public class LR1 {
                 tables.put(dim, new Entry(edge.getTo(), Entry.GOTO));//Integer => Entry 遇到的
             } else {
                 dim = transDim(edge.getFrom(), edge.getSymbol());// state, terminal
+
+
+                Entry entry = tables.get(dim);
+                if(entry != null) {//遇到了移进归约冲突
+                    System.out.printf("shift-reduce %d-> %d %c\n\n", edge.getFrom(), edge.getTo(), edge.getSymbol().getValue());
+                }
+
                 //System.out.printf("shift %d -> %d using %c dim:%d\n", edge.getFrom(), edge.getTo(), edge.getSymbol().getValue(), dim);
                 tables.put(dim, new Entry(edge.getTo(), Entry.SHIFT));// shift j
             }
         }
 
+        printTables();
     }
 
     /**
@@ -546,44 +668,6 @@ public class LR1 {
         return 'e';
     }
 
-    /**
-     * 打印first集合
-     */
-    void printFirst() {
-        System.out.println("下面是first集合");
-        for (First first : firsts) {
-            System.out.print(first.getLeft() + "\t=>\t");
-            for (Terminal t : first.getRight()) {
-                System.out.print(t.toString() + " ");
-            }
-            System.out.println();
-        }
-    }
-    /**
-     * 打印所有的状态
-     */
-    void printStates() {
-        //打印状态
-        for (Map.Entry<Integer, Set<Item>> items : states.entrySet()) {
-            System.out.printf("这是%d状态\n", items.getKey());
-            print(items.getValue());
-        }
-    }
-
-    /**
-     * 打印所有的边
-     */
-    void printEdges() {
-        //打印边
-        //System.out.println("边数量" + edgeSet.size());
-        for (Edge edge : edgeSet) {
-            System.out.println();
-            print(states.get(edge.getFrom()));
-            System.out.println(edge);
-            print(states.get(edge.getTo()));
-            System.out.println();
-        }
-    }
     /**
      * 打印最后生成的表
      */
@@ -700,52 +784,30 @@ public class LR1 {
         return flag;
     }
 
-    /**
-     * 运行最后的程序 给定input输入串 和grammar 输入的语法
-     * @param input 要分析的串
-     * @param grammar 要分析的语法
-     * @return 是否匹配
-     */
     public boolean program(String input, String grammar) {
-        geneProduction(grammar);//生成产生式 终结符号 非终结符号
-        geneFirst();//生成first集合
-        geneItems();//先生成所有的项目 便于后续的set操作
-        construct();//构造最后的表项
-        printTables();//打印表
-        return analysis(input);//返回分析结果
+        geneProduction(grammar);
+        geneFirst();
+        geneFollow();
+        showFirst();
+        showFollow();
+        construct();
+        return analysis(input);
     }
 
-    private void test() {
-        Set<Item> tmp = Closure(states.get(beginState));//初始化T为最开始状态的闭包
-        print(tmp);
-    }
     public static void main(String[] args) {
         /*
         给定的文法
-        S V=E
-        S E
-        E V
-        V x
-        V *E
-
-        分析串
-        *x=**x
+        E T+E
+        E T
+        T x
         * */
-        LR1 lr1 = new LR1();
+        SLR lr0 = new SLR();
         //默认文法第一个符号为 S 即文法的开始符号
-        String grammar = "S V=E\nS E\nE V\nV x\nV *E";
-        String s = "*x=**x";
-        lr1.geneProduction(grammar);
-        lr1.geneFirst();
-        lr1.printFirst();
 
-        lr1.geneItems();
-
-        lr1.test();
-
-//        lr1.construct();
-//        lr1.printTables();
-//        System.out.println("\n分析的结果是");
-//        System.out.println(lr1.analysis(s));
+        String grammar = "S (L)\nS x\nL S\nL L,S";
+        String s = "((x,(x)))";
+        grammar = "E T+E\nE T\nT x";
+        s = "x+x+x";
+        System.out.println(lr0.program(s, grammar));
     }
 }

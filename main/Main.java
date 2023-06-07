@@ -104,6 +104,7 @@ public class Main {
         System.out.println("input string:\n" + input + "\ngrammar:\n" + grammar.toString());
         System.out.println(lr0.program(input, grammar.toString()));
     }
+
     public static void main(String[] args) throws IOException {
         System.out.println("result of lab1");
         lab1();
