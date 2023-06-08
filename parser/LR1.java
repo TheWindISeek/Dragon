@@ -104,12 +104,14 @@ public class LR1 {
 
         //adjust whether set is changed or not.
         boolean isChanged = true;
+        //生成产生式右部的first 产生式右部的全部而不是只是一部分 因为生成的是产生式右部的代码 所以每次我都只需要先生成产生式右部的first 然后将这个first添加到产生式左部的first集合中去
         while (isChanged){
             isChanged = false;
             for(Production production: productions.values()) {
                 //if X -> Y1 Y2 Y3 ....
                 int index = 0;
                 Symbol symbol = getSymbols(production.getRight().charAt(index));
+
                 if(symbol instanceof NonTerminal) {
                     First X = stringFirstMap.get(production.getRight());
                     if(X == null) {
@@ -167,6 +169,9 @@ public class LR1 {
             }
         }
 
+        //现在我需要计算产生式右部一部分的first集合 该如何计算呢
+
+
         //add all first to firsts
         for(Map.Entry<Symbol, First> entry: firstMap.entrySet()) {
             if(entry.getKey() instanceof NonTerminal)
@@ -175,6 +180,53 @@ public class LR1 {
         for(Map.Entry<String, First> entry: stringFirstMap.entrySet()) {
             firsts.add(entry.getValue());
         }
+    }
+
+    private First geneFirst(String right) {
+        First firstList = new First(right);
+        int index = 0;
+        char c = right.charAt(index);
+        Symbol symbol = getSymbols(c);
+
+        boolean end = false;
+        for(Terminal t: firstMap.get(symbol).getRight()) {
+            if(t.equals(Terminal.Empty)) {
+                end = true;
+                continue;
+            }
+            firstList.add(t);
+        }
+
+        while (end) {
+            //find all non-terminal
+            if(index + 1 == right.length()) {
+                break;
+            }
+            symbol = getSymbols(right.charAt(++index));
+            //the terminal should be included in the first
+            if(symbol instanceof Terminal) {
+                firstList.add((Terminal) symbol);
+                end = false;
+                break;
+            }
+
+            end = false;
+            for (Terminal t: firstMap.get((NonTerminal) symbol).getRight()) {
+                if(t.equals(Terminal.Empty)) {
+                    end = true;
+                    continue;
+                }
+                firstList.add(t);
+            }
+        }
+
+        //all Y have sigma
+        if(end) {
+            firstList.add(Terminal.Empty);
+        }
+
+        System.out.println("右部残缺的first list" + firstList);
+        return firstList;
     }
 
     //get symbol from char
@@ -221,7 +273,7 @@ public class LR1 {
                 symbol = new NonTerminal(left.charAt(0));
                 if (nonTerminals.size() == 0) {//这里是否还需要这样做就不一定了
                     //制作一个增广文法 beginSymbol -> left
-                    Production production = new Production(beginSymbol, left, index++);
+                    Production production = new Production(beginSymbol, left+"#", index++);
                     productions.put(production.getNum(), production);
 
                     //初始状态
@@ -274,18 +326,22 @@ public class LR1 {
             index = 0;
             sz = production.getRight().length();
             while (index < sz) { //其实在这里我生成所有的式子的时候 直接把所有的都生成了
-                for(Terminal terminal: terminals) {//需要把所有的都给生成了 也就是lookahead都给生成了
-                    hashCode = Objects.hash(production, getSymbols(production.getRight().charAt(index)), terminal);
-                    item = new Item(production, getSymbols(production.getRight().charAt(index)), terminal, index);//新建一个项目的时候记录他跑到了哪个index
+                    //根据 产生式    当前将要识别的符号  index
+                    hashCode = Objects.hash(production, getSymbols(production.getRight().charAt(index)), index);
+
+                    item = new Item(production, getSymbols(production.getRight().charAt(index)), index);//新建一个项目的时候记录他跑到了哪个index
                     itemMap.put(hashCode, item);
-                    System.out.printf("%-10d\t %s \n", hashCode, item.toString());
-                }
+
+                    System.out.printf("%-10d\t %s \n", hashCode, item);
                 index++;
             }
-            hashCode = Objects.hash(production, Symbol.RIGHTMOST, Symbol.EMPTY);
-            item = new Item(production, Symbol.RIGHTMOST, Symbol.EMPTY);//lookahead为空
+
+            //最右端先给写上
+            hashCode = Objects.hash(production, Symbol.RIGHTMOST, production.getRight().length());
+            item = new Item(production, Symbol.RIGHTMOST, Symbol.EMPTY, production.getRight().length());//lookahead为空
             itemMap.put(hashCode, item);
-            System.out.printf("%-10d\t %s \n", hashCode, item.toString());
+
+            System.out.printf("%-10d\t %s \n", hashCode, item);
         }
     }
 
@@ -293,6 +349,11 @@ public class LR1 {
      * 求状态I的闭包 LR1版本
      * @param I 状态I 其中包含项目
      * @return closure(I)
+     * for I 中的任意项 A->alpha. X beta, z
+     *      for 任意产生式 X -> γ
+     *          关键在于这里的 FIRST(beta z)
+     *          for 任意 w 属于 FIRST(beta z)
+     *              I <= I + {(X => . γ, w )}
      */
     public Set<Item> Closure(Set<Item> I) {
         boolean isChanged = true;
@@ -305,24 +366,77 @@ public class LR1 {
                 if (item.getNextSymbol() instanceof Terminal) continue;//下一个符号是终结符号 不可能X->γ
 
                 NonTerminal nextSymbol = (NonTerminal) item.getNextSymbol();//获得下一个符号
-                for (Production production : productions.values()) {
-                    if (nextSymbol.equals(production.getLeft())) {//找到产生式 X-> γ
-                        //新建一个项目 加入到set中; x->y .y
-                        //for 任意w 属于 FIRST (beta z)
+                String productionRight = item.getProduction().getRight();
+                for (Production production : productions.values()) { //对于所有的产生式
+                    if (nextSymbol.equals(production.getLeft())) {//找到产生式 X-> γ 有个问题 lookahead符号是不是可以有多个
 
-                        String right = item.getProduction().getRight();
-                        int find = item.getIndex();//找到x的下标
-                        String firstString = right.substring(find+1);//截取他后面所有的字符串 可以肯定这个字符串不会为空 因为为空了 我前面就通过rightmost判别了
 
-                        //如果z是空 那么接下来其实我们只需要看 first(beta)
-                        if (!item.getLookahead().equals(Symbol.EMPTY)) {
-                            firstString += item.getLookahead().getValue();// 当lookahead不为空时 应该算上lookahead的部分 对吗？
+                        //index -> X的位置 如果index+1 == length 那么说明x后面没有字符了
+                        //四种情况 beta 为空 z 为空 也就是  =>  index == getRight().length()   && z == Symbol.EMPTY
+                        //如果 beta为空 z不为空  那么就直接看 first(z)
+                        //如果 beta不为空 那当z为空的时候 看 first(beta)
+                        //如果 beta 不为空 那么当z不为空的时候 看first(beta z)
+
+                        //重新梳理一下 我新建item的时候并没有为他新建 lookahead 当然这个项目可能仍然会在之前被查到
+                        //因为lookahead里面可能会有许多项 实际对其进行考虑的时候 我是都要进行考虑的
+
+//                        String productionRight = production.getRight();//当前项目的产生式右部的字符串
+                        Set<Symbol> lookahead = item.getLookahead();//当前项目的lookahead是谁
+                        Symbol newNextSymbol = getSymbols(production.getRight().charAt(0));//X -> γ 中的γ
+                        int index = item.getIndex();//当前项目分析到了产生式的哪个位置
+
+
+                        boolean isBetaEmpty = index + 1 == productionRight.length();
+                        boolean isLookAheadEmpty = lookahead.size() == 1 && lookahead.contains(Symbol.EMPTY);
+
+                        System.out.println("当前产生式\t" + productionRight + "当前下标\t" + index + "当前是否到了最右边\t" + isLookAheadEmpty);
+
+                        int hashCode = Objects.hash(production, newNextSymbol, 0);//新加下一个项目 当前产生式X -> γ  γ 分析到的位置
+                        Item tempItem = itemMap.get(hashCode);
+
+                        if(isBetaEmpty && isLookAheadEmpty) { // 两者都为空
+
+                            System.out.println("beta为空 右边也扫描到了最右端");//应该不会出现这种情况不过以往万一
+
+                        } else if (isBetaEmpty && !isLookAheadEmpty) { // 扫描到最后了 但是还可以看lookahead
+                            System.out.println("isBetaEmpty and !isLookAheadEmpty" + lookahead);
+
+                            //对于所有可能的symbol 我们去找他里面符号的first
+                            for(Symbol symbol: lookahead) {
+                                for(Terminal t: firstMap.get(symbol).getRight()) {
+                                    tempItem.addLookahead(t);
+                                }
+                            }
+                        } else if(!isBetaEmpty && isLookAheadEmpty) { // 没扫描打最后 z为空
+
+                            //获取右端字符串
+                            String restString = productionRight.substring(index+1);
+                            System.out.println("剩余的字符串" + restString);
+                            //获取右端字符串
+                            for(Terminal terminal: geneFirst(restString).getRight()) {
+                                tempItem.addLookahead(terminal);
+                            }
+
+                        } else { // 两者都不为空
+                            //获取右端字符串
+                            String restString = productionRight.substring(index+1);
+                            System.out.println("剩余的字符串" + restString);//也就是我这里其实没有为他生成对应的first语句
+                            //获取右端字符串
+                            for(Terminal terminal: geneFirst(restString).getRight()) {
+                                if(terminal.equals(Terminal.Empty)) {//如果first里面有空 就将first(z)也加入到其中
+                                    for(Symbol symbol: lookahead) {
+                                        for(Terminal t: firstMap.get(symbol).getRight()) {
+                                            tempItem.addLookahead(t);
+                                        }
+                                    }
+                                    continue;
+                                }
+                                tempItem.addLookahead(terminal);
+                            }
                         }
 
-                        for(Terminal terminal: stringFirstMap.get(firstString).getRight()) { //根据产生式右部的结果 进行计算
-                            int hashCode = Objects.hash(production, getSymbols(production.getRight().charAt(0)), terminal);//这里可能获取不到
-                            list.add(itemMap.get(hashCode));
-                        }
+                        System.out.println(tempItem);
+                        list.add(tempItem);//将这个新加的项目添加到添加列表中
                     }
                 }
             }
@@ -366,14 +480,22 @@ public class LR1 {
             String s = item.getProduction().getRight();
             int find = s.indexOf(item.getNextSymbol().getValue());
             if (find == -1) {
-                System.out.printf("%c -> %5s .\n", item.getProduction().getLeft().getValue(), s);
+                System.out.printf("%c -> %5s .\t", item.getProduction().getLeft().getValue(), s);
+                for(Symbol symbol: item.getLookahead()) {
+                    System.out.printf(" %c,", symbol.getValue());
+                }
+                System.out.println();
             } else {
                 String left = "", right = "";
                 if (find != 0) {
                     left = s.substring(0, find);
                 }
                 right = s.substring(find);
-                System.out.printf("%c -> %s . %s\n", item.getProduction().getLeft().getValue(), left, right);
+                System.out.printf("%c -> %s . %s\t", item.getProduction().getLeft().getValue(), left, right);
+                for(Symbol symbol: item.getLookahead()) {
+                    System.out.printf(" %c,", symbol.getValue());
+                }
+                System.out.println();
             }
         }
     }
@@ -442,7 +564,7 @@ public class LR1 {
         List<Edge> addEdgeList = new ArrayList<>();
 
         states.put(index++, tmp);// T <= {closure(S' -> S)}
-        //setItemList.add(tmp);
+        //setItemList.add(tmp); 如果这里添加了就会出现重复添加的情况
 
         //计算DFA
         while (isChanged) {
@@ -559,6 +681,7 @@ public class LR1 {
             System.out.println();
         }
     }
+
     /**
      * 打印所有的状态
      */
@@ -730,6 +853,7 @@ public class LR1 {
 
         分析串
         *x=**x
+
         * */
         LR1 lr1 = new LR1();
         //默认文法第一个符号为 S 即文法的开始符号
@@ -742,10 +866,5 @@ public class LR1 {
         lr1.geneItems();
 
         lr1.test();
-
-//        lr1.construct();
-//        lr1.printTables();
-//        System.out.println("\n分析的结果是");
-//        System.out.println(lr1.analysis(s));
     }
 }

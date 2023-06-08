@@ -31,6 +31,17 @@ public class First {
         return right;
     }
 
+    @Override
+    public String toString() {
+        StringBuilder sb = new StringBuilder();
+        sb.append("First{" + "left='").append(left).append('\'').append(", right={");
+        for(Terminal terminal: right) {
+            sb.append(terminal.getValue());
+        }
+        sb.append("}}");
+        return sb.toString();
+    }
+
     public String getLeft() {
         return left;
     }
