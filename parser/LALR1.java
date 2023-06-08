@@ -29,7 +29,7 @@ import java.util.*;
  * construct() =
  *
  */
-public class LR1 {
+public class LALR1 {
     Map<Integer, Set<Item>> states = new HashMap<>();//状态的编号 -> 状态编号里面的项目
     List<Set<Item>> setItemList = new ArrayList<>();//这里存放所有的set<Item>
     List<Edge> edgeList = new ArrayList<>();//这里存放所有的edge
@@ -455,18 +455,32 @@ public class LR1 {
      * @return 将圆点移动到所有项的符号X之后
      */
     public Set<Item> Goto(Set<Item> I, Symbol X) {
+        System.out.println("\n\n\n进入goto函数 给定的X是"+ X.getValue());
+        print(I);
+
         Set<Item> J = new HashSet<>();
         if (X.equals(Symbol.RIGHTMOST)) return J;//如果都扫描到最右边了 那么很显然走不下去了
         for (Item item : I) {
             //如果可以跳到下一个状态
             if (item.getNextSymbol().equals(X)) {
+                if (X.equals(Terminal.End)) continue;
                 String s = item.getProduction().getRight();
                 int index = item.getIndex()+1;
                 Symbol c = index == s.length() ? Symbol.RIGHTMOST : getSymbols(s.charAt(index));
-                int hash = Objects.hash(item.getProduction(), c);
+                int hash = Objects.hash(item.getProduction(), c, index);
+                Item item1 = itemMap.get(hash);
+                for(Symbol symbol: item.getLookahead()) {
+                    item1.addLookahead(symbol);
+                }
+                System.out.println("当前状态下又添加了一个" + item1);
                 J.add(itemMap.get(hash));
             }
         }
+
+
+        System.out.println("计算完可到达的J");
+        print(J);
+        System.out.println("\n\n\n");
         return Closure(J);
     }
 
@@ -614,18 +628,33 @@ public class LR1 {
         //归约动作 REDUCE J reduce 这里和LR0是不一样的
         for (Map.Entry<Integer, Set<Item>> items : states.entrySet()) {
             for (Item item : items.getValue()) {
-                if (item.getNextSymbol().equals(Symbol.RIGHTMOST)) { //如果已经到最右边了 可以进行归约了
+                System.out.println("当前进行处理的项目是" + item);
+                if (item.getNextSymbol().equals(Symbol.RIGHTMOST) || item.getNextSymbol().equals(Terminal.End)) { //如果已经到最右边了 可以进行归约了
                     Production production = item.getProduction();
+
+//                    System.out.println();
+
                     if (production.getNum() == 0) { // accept
                         dim = transDim(items.getKey(), Terminal.End);
                         //System.out.printf("accept %d production: %c->%s dim: %d\n", items.getKey(), production.getLeft().getValue(), production.getRight(), dim);
                         tables.put(dim, new Entry(production.getNum(), Entry.ACCEPT));
                     } else { // reduce j
-                        for(Terminal terminal: terminals) { // 这里就是LR0的缺陷 直接把所有的都置为了rj
-                            dim = transDim(items.getKey(), terminal);
-                            //System.out.printf("reduce %d production: %c->%s dim: %d\n", items.getKey(), production.getLeft().getValue(), production.getRight(), dim);
-                            tables.put(dim, new Entry(production.getNum(), Entry.REDUCE));
+//                        for(Terminal terminal: terminals) { // 这里就是LR0的缺陷 直接把所有的都置为了rj
+//                            dim = transDim(items.getKey(), terminal);
+//                            //System.out.printf("reduce %d production: %c->%s dim: %d\n", items.getKey(), production.getLeft().getValue(), production.getRight(), dim);
+//                            tables.put(dim, new Entry(production.getNum(), Entry.REDUCE));
+//                        }
+
+                        for(Symbol symbol: item.getLookahead()) {
+                            System.out.println("symbol:"+symbol.getValue());
+                            System.out.printf("reduce %d production: %c->%s dim: \n", items.getKey(), production.getLeft().getValue(), production.getRight());
+                            if(symbol.equals(Symbol.EMPTY) || symbol instanceof Terminal) {
+                                symbol = symbol.equals(Symbol.EMPTY) ? Terminal.End : symbol;
+                                dim = transDim(items.getKey(), symbol);
+                                tables.put(dim, new Entry(production.getNum(), Entry.REDUCE));
+                            }
                         }
+
                     }
                 }
             }
@@ -839,8 +868,10 @@ public class LR1 {
     }
 
     private void test() {
-        Set<Item> tmp = Closure(states.get(beginState));//初始化T为最开始状态的闭包
-        print(tmp);
+        //Set<Item> tmp = Closure(states.get(beginState));//初始化T为最开始状态的闭包
+        //print(tmp);
+        construct();
+        printTables();
     }
     public static void main(String[] args) {
         /*
@@ -855,16 +886,17 @@ public class LR1 {
         *x=**x
 
         * */
-        LR1 lr1 = new LR1();
+        LALR1 lr1 = new LALR1();
         //默认文法第一个符号为 S 即文法的开始符号
         String grammar = "S V=E\nS E\nE V\nV x\nV *E";
-        String s = "*x=**x";
-        lr1.geneProduction(grammar);
-        lr1.geneFirst();
-        lr1.printFirst();
-
-        lr1.geneItems();
-
-        lr1.test();
+        String s = "***x=**x";
+        System.out.println(lr1.program(s, grammar));
+//        lr1.geneProduction(grammar);
+//        lr1.geneFirst();
+//        lr1.printFirst();
+//
+//        lr1.geneItems();
+//
+//        lr1.test();
     }
 }

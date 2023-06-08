@@ -18,7 +18,7 @@ public class Item {
     private Symbol nextSymbol;
     //下一个要被分析的符号占产生式的哪个地方
     private int index;
-    //将被用于LR1分析
+    //将被用于LR1分析 用于产生式的选择
     private Set<Symbol> lookahead;
     //项目的编号
     private int num;
