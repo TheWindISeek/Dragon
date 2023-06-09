@@ -882,14 +882,44 @@ public class LALR1 {
         V x
         V *E
 
+
+        S UTa
+        S Tb
+        T S
+        T Sc
+        T d
+        U US
+        U e
+
+
+        P P(P)
+        P Aa
+        P $
+        A $
         分析串
         *x=**x
 
+        edbcbda
         * */
         LALR1 lr1 = new LALR1();
         //默认文法第一个符号为 S 即文法的开始符号
         String grammar = "S V=E\nS E\nE V\nV x\nV *E";
         String s = "***x=**x";
+
+        grammar = "S UTa\n" +
+                "S Tb\n" +
+                "T S\n" +
+                "T Sc\n" +
+                "T d\n" +
+                "U US\n" +
+                "U e";
+        s = "edbcbda";
+
+        grammar = "P P(P)\n" +
+                "P Aa\n" +
+                "P $\n" +
+                "A $";
+        s = "a()";
         System.out.println(lr1.program(s, grammar));
 //        lr1.geneProduction(grammar);
 //        lr1.geneFirst();
