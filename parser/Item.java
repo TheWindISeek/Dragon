@@ -49,6 +49,7 @@ public class Item {
     public Item(Production production, Symbol nextSymbol) {
         this.production = production;
         this.nextSymbol = nextSymbol;
+        this.lookahead = new HashSet<>();
     }
 
     public int getIndex() {

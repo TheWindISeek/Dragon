@@ -63,13 +63,11 @@ import java.util.*;
  *  R <- R + {I, A->a}
  *  (I,Y) = rn (n代表规则几 或者说这是第几个产生式)
  *
- * 对于E 中的每一条边 I ->X J
- * //终结符说明是移进
- * X 为 终结符号
- * (I,X) = sJ
- * //非终结符说明已归约 可goto
- * X 为 非终结符号
- * (I,X) = gJ
+ * for E 中的每一条边 I ->X J
+ *      X 为 终结符号//终结符说明是移进
+ *          (I,X) = sJ
+ *      X 为 非终结符号//非终结符说明已归约 可goto
+ *          (I,X) = gJ
  *
  * 会得到下列表
  * (   )   x   ,   #   S   L
@@ -651,8 +649,9 @@ public class LR0 {
 
         String grammar = "S (L)\nS x\nL S\nL L,S";
         String s = "((x,(x)))";
-        grammar = "E E+T\nE T\nT T*F\nT F\nF (E)\nF v\nF d";
-        s = "v+v*d";
+//        grammar = "E E+T\nE T\nT T*F\nT F\nF (E)\nF v\nF d";
+//        s = "v+v*d";
+
         //1.读入产生式
         //2.构建增广文法
         lr0.geneProduction(grammar);
@@ -767,7 +766,7 @@ public class LR0 {
 
         lr.printTables();*/
         //5.根据分析表进行分析
-        System.out.println("\n分析的结果是");
+        System.out.println("分析的结果是");
         System.out.println(lr0.analysis(s));
     }
 }

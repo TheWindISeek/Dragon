@@ -609,16 +609,7 @@ public class SLR {
                             //System.out.printf("reduce %d production: %c->%s dim: %d\n", items.getKey(), production.getLeft().getValue(), production.getRight(), dim);
                             tables.put(dim, new Entry(production.getNum(), Entry.REDUCE));
                         }
-//                        for(Terminal terminal: terminals) { // 这里就是LR0的缺陷 直接把所有的都置为了rj
-//                            dim = transDim(items.getKey(), terminal);
-//                            //System.out.printf("reduce %d production: %c->%s dim: %d\n", items.getKey(), production.getLeft().getValue(), production.getRight(), dim);
-//                            tables.put(dim, new Entry(production.getNum(), Entry.REDUCE));
-//                        }
                     }
-
-
-
-
                 }
             }
         }
@@ -808,6 +799,9 @@ public class SLR {
         String s = "((x,(x)))";
         grammar = "E T+E\nE T\nT x";
         s = "x+x+x";
+//        grammar = "E E+T\nE T\nT T*F\nT F\nF (E)\nF v\nF d";
+//        s = "v+v*d";
+
         System.out.println(lr0.program(s, grammar));
     }
 }
