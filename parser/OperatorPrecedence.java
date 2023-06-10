@@ -7,6 +7,16 @@ import java.util.*;
  * @author JeffreySharp
  * @apiNote 算符优先分析程序
  *
+ * 使用指南
+ *      可参考本类中main函数中的用户
+ *      首先新建一个对象
+ *      接着向其中传入要识别的串和文法
+ *      测试文法使用的是书本P111的例5.3
+ *      测试输入第一个是书本上的输入 参见P116表5.8
+ *      第二个是自行构建的测试样例
+ *      第三个是失败样例
+ *
+ *
  * 算符优先算法很明显会出现假真的情况
  * 因为他根本没有比较产生式是否相等
  * 而是在当前算符的优先级下是否是正确的
@@ -382,6 +392,7 @@ public class OperatorPrecedence {
                 Symbol xi = getSymbols(production.getRight().charAt(i));
                 Symbol xip1 = getSymbols(production.getRight().charAt(i+1));
 
+                //这里有两点注意 其一是都用的if 因为要一次性全部生成所有的结果 其二是要保证输入参数的顺序正确 因为这个并不是自反的关系
                 if(xi instanceof Terminal && xip1 instanceof Terminal) {
                     tables.put(transDim((Terminal) xi, (Terminal) xip1), EQ);
                 }
@@ -437,9 +448,10 @@ public class OperatorPrecedence {
         System.out.println("开始进行分析");
 
         while (true) {
-            c = index < input.length() ? input.charAt(index++) : '#';
+            c = index < input.length() ? input.charAt(index++) : '#';//如果输入串读完了 则每次都给它赋值为结束符号
             a = (Terminal) getSymbols(c);
             while (true) {
+                //这里利用了性质1 P109 目的就是为了获取终结符号
                 if (symbols.get(k) instanceof Terminal) {
                     j = k;
                 } else {
@@ -466,7 +478,7 @@ public class OperatorPrecedence {
                     k = j + 1;
                     symbols.add(k, NonTerminal.NON_TERMINAL);
                 } else {
-                    if (isAction((Terminal) symbols.get(j), a, LE)) {
+                    if (isAction((Terminal) symbols.get(j), a, LE)) {//小于的直接移进
                         System.out.printf("%c < %c\n", symbols.get(j).getValue(), a.getValue());
 
                         k = k + 1;
@@ -476,13 +488,13 @@ public class OperatorPrecedence {
                         if (isAction((Terminal) symbols.get(j), a, EQ)) {
                             System.out.printf("%c = %c\n", symbols.get(j).getValue(), a.getValue());
 
-                            if (symbols.get(j).equals(Terminal.End)) {
-                                if (index == input.length()) {
+                            if (symbols.get(j).equals(Terminal.End)) {//如果分析到了终结符号
+                                if (index == input.length()) {//并且句子也已经分析完毕了
                                     return true;
                                 } else {
                                     return false;
                                 }
-                            } else {
+                            } else {//普通的终结符 移进就是了
                                 k = k + 1;
                                 symbols.add(k, a);
                                 break;
@@ -583,24 +595,33 @@ public class OperatorPrecedence {
 
     //测试和工作函数
     private void test(String input, String grammar) {
+        //生成产生式 终结符 非终结符
         geneProduction(grammar);
         showTerminal();
         showNonTerminal();
         showProduction();
 
+        //生成firstvt 和 lastvt
         geneMap();
         geneFirstVt();
         showFirstVt();
         geneLastVt();
         showLastVt();
 
+        //生成对应的表格
         geneTables();
         showTable();
 
+        //根据表格输出对应的结果
         System.out.println(analysis(input));
     }
 
-
+    /**
+     * input为要识别的串 grammar为给定的文法 返回结果 和中间的生成过程
+     * @param input 输入串
+     * @param grammar 语法
+     * @return input是否为当前grammar的句子
+     */
     public boolean program(String input, String grammar) {
         geneProduction(grammar);
         showTerminal();
@@ -631,7 +652,13 @@ public class OperatorPrecedence {
          *  F P
          *  P (E)
          *  P i
+         *
+         *  符号串
+         *  E => E+T => T+T => F+F => P+P => i+i
+         *  E => E+T => T+T*T*F => F+F*F*F => P+P!F*F*F => i+i*P!F*i => i+i*(i)!i*i
          */
+        //给定的文法 前后没有空格且以\n分割 (当然也可以自己调整geneProduction中的划分代码)
+        //并且给定的第一个产生式必须为文法的开始符号
         String grammar = "E E+T\n" +
                         "E T\n" +
                         "T T*F\n" +
@@ -640,9 +667,9 @@ public class OperatorPrecedence {
                         "F P\n" +
                         "P (E)\n" +
                         "P i";
-        String input = "i+i";
-        input = "i+i*(i)!i*i";
-
-        op.test(input, grammar);
+        String input = "i+i";//true
+        input = "i+i*(i)!i*i";//true
+//        input = "(i)*ii";//false
+        System.out.println(op.program(input, grammar));
     }
 }
